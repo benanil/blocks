@@ -9,6 +9,7 @@
 #include "camera.h"
 #include "containers.h"
 #include "helpers.h"
+#include "voxmesh.h"
 #include "world.h"
 
 #define MAX_JOBS 1000
@@ -36,7 +37,6 @@ typedef struct
     mtx_t mtx;
     cnd_t cnd;
     const job_t* job;
-    uint8_t lights[3][3][3][CHUNK_X][CHUNK_Y][CHUNK_Z];
     SDL_GPUTransferBuffer* tbo;
     uint32_t size;
 } worker_t;
@@ -63,67 +63,6 @@ static void load(worker_t* worker)
     group->loaded = true;
 }
 
-static uint32_t fill(
-    const chunk_t* chunk,
-    const chunk_t* neighbors[DIRECTION_3],
-    const uint8_t lights[CHUNK_X][CHUNK_Y][CHUNK_Z],
-    uint32_t* data,
-    const uint32_t capacity)
-{
-    assert(chunk);
-    assert(!chunk->empty);
-    assert(!chunk->renderable);
-    uint32_t size = 0;
-    for (int x = 0; x < CHUNK_X; x++)
-    for (int y = 0; y < CHUNK_Y; y++)
-    for (int z = 0; z < CHUNK_Z; z++)
-    {
-        const block_t a = chunk->blocks[x][y][z];
-        if (a == BLOCK_EMPTY)
-        {
-            continue;
-        }
-        for (direction_t direction = 0; direction < DIRECTION_3; direction++)
-        {
-            if (y == 0 && direction != DIRECTION_U)
-            {
-                continue;
-            }
-            block_t b = BLOCK_EMPTY;
-            int c = x + directions[direction][0];
-            int d = y + directions[direction][1];
-            int e = z + directions[direction][2];
-            if (in_chunk(c, d, e))
-            {
-                b = chunk->blocks[c][d][e];
-            }
-            else if (neighbors[direction])
-            {
-                c = (c + CHUNK_X) % CHUNK_X;
-                d = (d + CHUNK_Y) % CHUNK_Y;
-                e = (e + CHUNK_Z) % CHUNK_Z;
-                b = neighbors[direction]->blocks[c][d][e];
-            }
-            if (!block_visible(a, b) || ++size > capacity)
-            {
-                continue;
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                data[(size * 4) - 4 + i] = block_get_voxel(
-                    a,
-                    x,
-                    y,
-                    z,
-                    direction,
-                    lights[x][y][z],
-                    i);
-            }
-        }
-    }
-    return size;
-}
-
 static void mesh(worker_t* worker)
 {
     const int32_t x = worker->job->x;
@@ -134,91 +73,9 @@ static void mesh(worker_t* worker)
     assert(!chunk->empty);
     chunk_t* neighbors[DIRECTION_3];
     world_get_chunk_neighbors(x, y, z, neighbors);
-    void* data = worker->tbo;
-    if (data)
-    {
-        data = SDL_MapGPUTransferBuffer(device, worker->tbo, true);
-        if (!data)
-        {
-            SDL_Log("Failed to map worker transfer buffer: %s", SDL_GetError());
-            return;
-        }
+    if (voxmesh_vbo(chunk, neighbors, device, &worker->tbo, &worker->size)) {
+        chunk->renderable = 1;
     }
-    const void* lights = worker->lights[1][1][1];
-    chunk->size = fill(chunk, neighbors, lights, data, worker->size);
-    if (data)
-    {
-        SDL_UnmapGPUTransferBuffer(device, worker->tbo);
-    }
-    if (!chunk->size)
-    {
-        return;
-    }
-    if (chunk->size > worker->size)
-    {
-        if (worker->tbo)
-        {
-            SDL_ReleaseGPUTransferBuffer(device, worker->tbo);
-            worker->size = 0;
-        }
-        SDL_GPUTransferBufferCreateInfo tbci = {0};
-        tbci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-        tbci.size = chunk->size * 16;
-        worker->tbo = SDL_CreateGPUTransferBuffer(device, &tbci);
-        if (!worker->tbo)
-        {
-            SDL_Log("Failed to create worker transfer buffer: %s", SDL_GetError());
-            return;
-        }
-        worker->size = chunk->size;
-        data = SDL_MapGPUTransferBuffer(device, worker->tbo, true);
-        if (!data)
-        {
-            SDL_Log("Failed to map worker transfer buffer: %s", SDL_GetError());
-            return;
-        }
-        chunk->size = fill(chunk, neighbors, lights, data, worker->size);
-        SDL_UnmapGPUTransferBuffer(device, worker->tbo);
-    }
-    if (chunk->size > chunk->capacity)
-    {
-        if (chunk->vbo)
-        {
-            SDL_ReleaseGPUBuffer(device, chunk->vbo);
-            chunk->size = 0;
-        }
-        SDL_GPUBufferCreateInfo bci = {0};
-        bci.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-        bci.size = chunk->size * 16;
-        chunk->vbo = SDL_CreateGPUBuffer(device, &bci);
-        if (!chunk->vbo)
-        {
-            SDL_Log("Failed to create chunk buffer: %s", SDL_GetError());
-            return;
-        }
-        chunk->capacity = chunk->size;
-    }
-    SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device);
-    if (!commands)
-    {
-        SDL_Log("Failed to acquire worker command buffer: %s", SDL_GetError());
-        return;
-    }
-    SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(commands);
-    if (!pass)
-    {
-        SDL_Log("Failed to begin worker copy pass: %s", SDL_GetError());
-        return;
-    }
-    SDL_GPUTransferBufferLocation tbl = {0};
-    tbl.transfer_buffer = worker->tbo;
-    SDL_GPUBufferRegion region = {0};
-    region.size = chunk->size * 16;
-    region.buffer = chunk->vbo;
-    SDL_UploadToGPUBuffer(pass, &tbl, &region, 1);
-    SDL_EndGPUCopyPass(pass);
-    SDL_SubmitGPUCommandBuffer(commands);
-    chunk->renderable = 1;
 }
 
 static int func(void* args)
@@ -530,7 +387,7 @@ bool world_init(void* handle)
         {
             chunk_t* chunk = &group->chunks[i];
             tag_init(&chunk->tag);
-            chunk->vbo = NULL;
+            chunk->buffer = NULL;
             chunk->size = 0;
             chunk->capacity = 0;
         }
@@ -555,10 +412,10 @@ void world_free()
         for (int i = 0; i < GROUP_CHUNKS; i++)
         {
             chunk_t* chunk = &group->chunks[i];
-            if (chunk->vbo)
+            if (chunk->buffer)
             {
-                SDL_ReleaseGPUBuffer(device, chunk->vbo);
-                chunk->vbo = NULL;
+                SDL_ReleaseGPUBuffer(device, chunk->buffer);
+                chunk->buffer = NULL;
             }
         }
     }
@@ -585,58 +442,9 @@ void world_update()
         ibo = NULL;
         capacity = 0;
     }
-    SDL_GPUTransferBufferCreateInfo tbci = {0};
-    tbci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    tbci.size = size * 24;
-    SDL_GPUTransferBuffer* buffer = SDL_CreateGPUTransferBuffer(device, &tbci);
-    if (!buffer)
-    {
-        SDL_Log("Failed to create world transfer buffer: %s", SDL_GetError());
-        return;
+    if (voxmesh_ibo(device, &ibo, size)) {
+        capacity = size;
     }
-    SDL_GPUBufferCreateInfo bci = {0};
-    bci.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-    bci.size = size * 24;
-    ibo = SDL_CreateGPUBuffer(device, &bci);
-    if (!ibo)
-    {
-        SDL_Log("Failed to create world index buffer: %s", SDL_GetError());
-        return;
-    }
-    capacity = size;
-    uint32_t* data = SDL_MapGPUTransferBuffer(device, buffer, false);
-    if (!data)
-    {
-        SDL_Log("Failed to map world transfer buffer: %s", SDL_GetError());
-        return;
-    }
-    for (uint32_t i = 0; i < size; i++)
-    for (uint32_t j = 0; j < 6; j++)
-    {
-        data[i * 6 + j] = i * 4 + block_get_index(j);
-    }
-    SDL_UnmapGPUTransferBuffer(device, buffer);
-    SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device);
-    if (!commands)
-    {
-        SDL_Log("Failed to acquire world command buffer: %s", SDL_GetError());
-        return;
-    }
-    SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(commands);
-    if (!pass)
-    {
-        SDL_Log("Failed to begin world copy pass: %s", SDL_GetError());
-        return;
-    }
-    SDL_GPUTransferBufferLocation location = {0};
-    location.transfer_buffer = buffer;
-    SDL_GPUBufferRegion region = {0};
-    region.size = size * 24;
-    region.buffer = ibo;
-    SDL_UploadToGPUBuffer(pass, &location, &region, 1);
-    SDL_EndGPUCopyPass(pass);
-    SDL_SubmitGPUCommandBuffer(commands);
-    SDL_ReleaseGPUTransferBuffer(device, buffer);
 }
 
 void world_render(
@@ -682,7 +490,7 @@ void world_render(
         int32_t position[3] = { x, y, z };
         SDL_PushGPUVertexUniformData(commands, 1, position, 12);
         SDL_GPUBufferBinding vbb = {0};
-        vbb.buffer = chunk->vbo;
+        vbb.buffer = chunk->buffer;
         SDL_BindGPUVertexBuffers(pass, 0, &vbb, 1);
         assert(chunk->size <= capacity);
         SDL_DrawGPUIndexedPrimitives(pass, chunk->size * 6, 1, 0, 0, 0);
