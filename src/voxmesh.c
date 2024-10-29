@@ -6,33 +6,12 @@
 #include "voxmesh.h"
 #include "world.h"
 
-#define X_BITS 5
-#define Y_BITS 5
-#define Z_BITS 5
-#define U_BITS 4
-#define V_BITS 4
-#define DIRECTION_BITS 3
-
-#define X_OFFSET (0)
-#define Y_OFFSET (X_OFFSET + X_BITS)
-#define Z_OFFSET (Y_OFFSET + Y_BITS)
-#define U_OFFSET (Z_OFFSET + Z_BITS)
-#define V_OFFSET (U_OFFSET + U_BITS)
-#define DIRECTION_OFFSET (V_OFFSET + V_BITS)
-
-#define X_MASK ((1 << X_BITS) - 1)
-#define Y_MASK ((1 << Y_BITS) - 1)
-#define Z_MASK ((1 << Z_BITS) - 1)
-#define U_MASK ((1 << U_BITS) - 1)
-#define V_MASK ((1 << V_BITS) - 1)
-#define DIRECTION_MASK ((1 << DIRECTION_BITS) - 1)
-
-static_assert(X_OFFSET + X_BITS <= 32, "");
-static_assert(Y_OFFSET + Y_BITS <= 32, "");
-static_assert(Z_OFFSET + Z_BITS <= 32, "");
-static_assert(U_OFFSET + U_BITS <= 32, "");
-static_assert(V_OFFSET + V_BITS <= 32, "");
-static_assert(DIRECTION_OFFSET + DIRECTION_BITS <= 32, "");
+static_assert(VOXEL_X_OFFSET + VOXEL_X_BITS <= 32, "");
+static_assert(VOXEL_Y_OFFSET + VOXEL_Y_BITS <= 32, "");
+static_assert(VOXEL_Z_OFFSET + VOXEL_Z_BITS <= 32, "");
+static_assert(VOXEL_U_OFFSET + VOXEL_U_BITS <= 32, "");
+static_assert(VOXEL_V_OFFSET + VOXEL_V_BITS <= 32, "");
+static_assert(VOXEL_DIRECTION_OFFSET + VOXEL_DIRECTION_BITS <= 32, "");
 
 static const int positions[][4][3] =
 {
@@ -71,19 +50,19 @@ static uint32_t pack(
     const int c = positions[direction][i][2] + z;
     const int d = uvs[direction][i][0] + blocks[block][direction][0];
     const int e = uvs[direction][i][1] + blocks[block][direction][1];
-    assert(a <= X_MASK);
-    assert(b <= Y_MASK);
-    assert(c <= Z_MASK);
-    assert(d <= U_MASK);
-    assert(e <= V_MASK);
-    assert(direction <= DIRECTION_MASK);
+    assert(a <= VOXEL_X_MASK);
+    assert(b <= VOXEL_Y_MASK);
+    assert(c <= VOXEL_Z_MASK);
+    assert(d <= VOXEL_U_MASK);
+    assert(e <= VOXEL_V_MASK);
+    assert(direction <= VOXEL_DIRECTION_MASK);
     uint32_t voxel = 0;
-    voxel |= a << X_OFFSET;
-    voxel |= b << Y_OFFSET;
-    voxel |= c << Z_OFFSET;
-    voxel |= d << U_OFFSET;
-    voxel |= e << V_OFFSET;
-    voxel |= direction << DIRECTION_OFFSET;
+    voxel |= a << VOXEL_X_OFFSET;
+    voxel |= b << VOXEL_Y_OFFSET;
+    voxel |= c << VOXEL_Z_OFFSET;
+    voxel |= d << VOXEL_U_OFFSET;
+    voxel |= e << VOXEL_V_OFFSET;
+    voxel |= direction << VOXEL_DIRECTION_OFFSET;
     return voxel;
 }
 
@@ -111,7 +90,7 @@ static uint32_t fill(
             int s = x + directions[d][0];
             int t = y + directions[d][1];
             int p = z + directions[d][2];
-            if (in_chunk(s, t, p)) {
+            if (chunk_in(s, t, p)) {
                 b = chunk->blocks[s][t][p];
             } else if (neighbors[d]) {
                 s = (s + CHUNK_X) % CHUNK_X;
@@ -121,7 +100,8 @@ static uint32_t fill(
             } else {
                 b = BLOCK_EMPTY;
             }
-            if (!block_visible(a, b) || ++size > capacity) {
+            if ((b != BLOCK_EMPTY && ( block_opaque(a) ||
+                !block_opaque(b))) || ++size > capacity) {
                 continue;
             }
             for (int i = 0; i < 4; i++) {

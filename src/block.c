@@ -1,7 +1,5 @@
 #include <stdbool.h>
-#include <stdint.h>
 #include "block.h"
-#include "helpers.h"
 
 const int blocks[][DIRECTION_3][2] =
 {
@@ -17,12 +15,10 @@ const int blocks[][DIRECTION_3][2] =
     {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 };
 
-static bool opaque(const block_t block)
+
+bool block_opaque(const block_t block)
 {
-    assert(block > BLOCK_EMPTY);
-    assert(block < BLOCK_COUNT);
-    switch (block)
-    {
+    switch (block) {
     case BLOCK_GLASS:
     case BLOCK_WATER:
         return 0;
@@ -30,7 +26,12 @@ static bool opaque(const block_t block)
     return 1;
 }
 
-bool block_visible(const block_t a, const block_t b)
+bool block_collision(const block_t block)
 {
-    return b == BLOCK_EMPTY || (opaque(a) && !opaque(b));
+    switch (block) {
+    case BLOCK_EMPTY:
+    case BLOCK_WATER:
+        return 0;
+    }
+    return 1;
 }

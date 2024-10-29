@@ -5,8 +5,7 @@
 #include "helpers.h"
 
 typedef uint8_t block_t;
-enum
-{
+enum {
     BLOCK_EMPTY,
     BLOCK_CLOUD,
     BLOCK_DIRT,
@@ -20,6 +19,7 @@ enum
     BLOCK_COUNT,
 };
 
-extern const int blocks[][DIRECTION_3][2];
+bool block_opaque(const block_t block);
+bool block_collision(const block_t block);
 
-bool block_visible(const block_t a, const block_t b);
+extern const int blocks[][DIRECTION_3][2];

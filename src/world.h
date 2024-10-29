@@ -17,12 +17,12 @@ void world_render(
     const camera_t* camera,
     SDL_GPUCommandBuffer* commands,
     SDL_GPURenderPass* pass);
-block_t world_get_block(
-    const int32_t x,
-    const int32_t y,
-    const int32_t z);
 void world_set_block(
     const int32_t x,
     const int32_t y,
     const int32_t z,
     const block_t block);
+block_t world_get_block(
+    const int32_t x,
+    const int32_t y,
+    const int32_t z);

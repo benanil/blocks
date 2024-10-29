@@ -1,12 +1,20 @@
 #pragma once
 
 #include <stdbool.h>
-#include "helpers.h"
 #include "block.h"
+#include "containers.h"
+#include "helpers.h"
+#include "noise.h"
 
 bool database_init(const char* file);
 void database_free();
 void database_commit();
+void database_set_noise(
+    const noise_type_t type,
+    const int seed);
+void database_get_noise(
+    noise_type_t* type,
+    int* seed);
 void database_set_player(
     const int id,
     const float x,
