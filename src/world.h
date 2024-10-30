@@ -13,7 +13,11 @@ void world_update(
     const int32_t x,
     const int32_t y,
     const int32_t z);
-void world_render(
+void world_render_opaque(
+    const camera_t* camera,
+    SDL_GPUCommandBuffer* commands,
+    SDL_GPURenderPass* pass);
+void world_render_transparent(
     const camera_t* camera,
     SDL_GPUCommandBuffer* commands,
     SDL_GPURenderPass* pass);
