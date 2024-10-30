@@ -4,15 +4,22 @@
 
 layout(location = 0) in uint voxel;
 layout(location = 0) out vec2 uv;
-layout(set = 1, binding = 0) uniform mvp_t {
+layout(location = 1) out float fog;
+layout(set = 1, binding = 0) uniform mvp_t
+{
     mat4 matrix;
-} mvp;
-layout(set = 1, binding = 1) uniform chunk_t {
+}
+mvp;
+layout(set = 1, binding = 1) uniform eye_t
+{
+    vec3 position;
+}
+eye;
+layout(set = 1, binding = 2) uniform chunk_t
+{
     ivec3 vector;
-} chunk;
-layout(set = 1, binding = 2) uniform scale_t {
-    vec2 vector;
-} scale;
+}
+chunk;
 
 void main()
 {
@@ -25,4 +32,7 @@ void main()
     uv.x = u / ATLAS_WIDTH * ATLAS_FACE_WIDTH;
     uv.y = v / ATLAS_HEIGHT * ATLAS_FACE_HEIGHT;
     gl_Position = mvp.matrix * vec4(position, 1.0);
+    fog = abs(length(position.xz - eye.position.xz));
+    fog = clamp(fog / world_fog_distance, 0.0, 1.0);
+    fog = pow(fog, world_fog_factor);
 }
