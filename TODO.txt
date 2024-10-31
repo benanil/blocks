@@ -1,27 +1,12 @@
-Features:
-- Collision
 - Lighting
-- Noise
-- Transparency
-  - Sorting within chunks
-    - Probably need to increase job queue size for a new sort job
-
-Memory Optimizations
-- Chunk Paging
-  - Kinda an obvious one. Free empty chunks
-
-Bug Fixes
-- Had to increase the near plane to avoid depth precision issues but now
-  it's clipping into the raycast
-  - Add support for changing the camera z planes
-
-Potential Database Race:
-- If you write to the database queue, then unload and reload the chunk
-  before the queue flushes the write, the chunk won't load the changes
-- To fix
-  1. Make database writes synchronous
-  2. Mark dirty chunk positions
-     - When the dirty chunk position is referenced for a read, the
-       database has to flush it's queue before reading into the chunk
-  3. Search through the database jobs on reads for any block writes
-- NOTE: While it's possible, I've never reproduced it myself
+- Collision
+- Transparency within chunks
+- Multisampling
+- Chunk paging
+  - Free empty chunks
+- Fix near plane clipping
+- Fix texture bleeding
+- Fix database race?
+  - If you write to the database queue then unload and reload the chunk before
+    the queue flushes the write, the chunk won't load the changes
+  - It is probably possible but never managed to make it happen
