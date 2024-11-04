@@ -2,6 +2,18 @@
 #include "helpers.h"
 #include "block.h"
 
+bool block_liquid(const block_t block)
+{
+    assert(block < BLOCK_COUNT);
+    switch (block)
+    {
+    case BLOCK_LAVA:
+    case BLOCK_WATER:
+        return 1;
+    }
+    return 0;
+}
+
 bool block_opaque(const block_t block)
 {
     assert(block < BLOCK_COUNT);
@@ -10,6 +22,8 @@ bool block_opaque(const block_t block)
     case BLOCK_EMPTY:
     case BLOCK_GLASS:
     case BLOCK_WATER:
+    // TODO:
+    case BLOCK_CLOUD:
         return 0;
     }
     return 1;
