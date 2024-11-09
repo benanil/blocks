@@ -418,8 +418,8 @@ static void load_atlas()
     tci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
     tci.type = SDL_GPU_TEXTURETYPE_2D;
     tci.layer_count_or_depth = 1;
-    tci.num_levels = 1;
-    tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    tci.num_levels = ATLAS_LEVELS;
+    tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
     tci.width = w;
     tci.height = h;
     atlas_texture = SDL_CreateGPUTexture(device, &tci);
@@ -466,6 +466,7 @@ static void load_atlas()
     region.d = 1;
     SDL_UploadToGPUTexture(pass, &tti, &region, 0);
     SDL_EndGPUCopyPass(pass);
+    SDL_GenerateMipmapsForGPUTexture(commands, atlas_texture);
     SDL_SubmitGPUCommandBuffer(commands);
     SDL_ReleaseGPUTransferBuffer(device, buffer);
 }
@@ -548,27 +549,27 @@ static void create_vbos()
 {
     const float quad[][2] =
     {
-        {-1, -1 },
-        { 1, -1 },
-        {-1,  1 },
-        { 1,  1 },
-        { 1, -1 },
-        {-1,  1 },
+        {-1,-1},
+        { 1,-1},
+        {-1, 1},
+        { 1, 1},
+        { 1,-1},
+        {-1, 1},
     };
     const float cube[][3] =
     {
-        {-1, -1, -1 }, { 1, -1, -1 }, { 1,  1, -1 },
-        {-1, -1, -1 }, { 1,  1, -1 }, {-1,  1, -1 },
-        { 1, -1,  1 }, { 1,  1,  1 }, {-1,  1,  1 },
-        { 1, -1,  1 }, {-1,  1,  1 }, {-1, -1,  1 },
-        {-1, -1, -1 }, {-1,  1, -1 }, {-1,  1,  1 },
-        {-1, -1, -1 }, {-1,  1,  1 }, {-1, -1,  1 },
-        { 1, -1, -1 }, { 1, -1,  1 }, { 1,  1,  1 },
-        { 1, -1, -1 }, { 1,  1,  1 }, { 1,  1, -1 },
-        {-1,  1, -1 }, { 1,  1, -1 }, { 1,  1,  1 },
-        {-1,  1, -1 }, { 1,  1,  1 }, {-1,  1,  1 },
-        {-1, -1, -1 }, {-1, -1,  1 }, { 1, -1,  1 },
-        {-1, -1, -1 }, { 1, -1,  1 }, { 1, -1, -1 },
+        {-1,-1,-1}, { 1,-1,-1}, { 1, 1,-1},
+        {-1,-1,-1}, { 1, 1,-1}, {-1, 1,-1},
+        { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1},
+        { 1,-1, 1}, {-1, 1, 1}, {-1,-1, 1},
+        {-1,-1,-1}, {-1, 1,-1}, {-1, 1, 1},
+        {-1,-1,-1}, {-1, 1, 1}, {-1,-1, 1},
+        { 1,-1,-1}, { 1,-1, 1}, { 1, 1, 1},
+        { 1,-1,-1}, { 1, 1, 1}, { 1, 1,-1},
+        {-1, 1,-1}, { 1, 1,-1}, { 1, 1, 1},
+        {-1, 1,-1}, { 1, 1, 1}, {-1, 1, 1},
+        {-1,-1,-1}, {-1,-1, 1}, { 1,-1, 1},
+        {-1,-1,-1}, { 1,-1, 1}, { 1,-1,-1},
     };
     SDL_GPUBufferCreateInfo bci = {0};
     bci.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
@@ -923,8 +924,6 @@ static bool poll()
     {
         switch (event.type)
         {
-        case SDL_EVENT_QUIT:
-            return false;
         case SDL_EVENT_WINDOW_RESIZED:
             camera_viewport(&player_camera, event.window.data1, event.window.data2);
             break;
@@ -967,6 +966,7 @@ static bool poll()
             if (event.key.scancode == BUTTON_PAUSE)
             {
                 SDL_SetWindowRelativeMouseMode(window, false);
+                SDL_SetWindowFullscreen(window, false);
             }
             else if (event.key.scancode == BUTTON_BLOCK)
             {
@@ -987,6 +987,8 @@ static bool poll()
                 }
             }
             break;
+        case SDL_EVENT_QUIT:
+            return false;
         }
     }
     return true;
@@ -999,30 +1001,12 @@ static void move(const float dt)
     float z = 0.0f;
     float speed = PLAYER_SPEED;
     const bool* state = SDL_GetKeyboardState(NULL);
-    if (state[BUTTON_RIGHT])
-    {
-        x++;
-    }
-    if (state[BUTTON_LEFT])
-    {
-        x--;
-    }
-    if (state[BUTTON_UP])
-    {
-        y++;
-    }
-    if (state[BUTTON_DOWN])
-    {
-        y--;
-    }
-    if (state[BUTTON_FORWARD])
-    {
-        z++;
-    }
-    if (state[BUTTON_BACKWARD])
-    {
-        z--;
-    }
+    x += state[BUTTON_RIGHT];
+    x -= state[BUTTON_LEFT];
+    y += state[BUTTON_UP];
+    y -= state[BUTTON_DOWN];
+    z += state[BUTTON_FORWARD];
+    z -= state[BUTTON_BACKWARD];
     if (state[BUTTON_SPRINT])
     {
         speed = PLAYER_SUPER_SPEED;
