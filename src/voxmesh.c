@@ -12,6 +12,7 @@ static_assert(VOXEL_Z_OFFSET + VOXEL_Z_BITS <= 32, "");
 static_assert(VOXEL_U_OFFSET + VOXEL_U_BITS <= 32, "");
 static_assert(VOXEL_V_OFFSET + VOXEL_V_BITS <= 32, "");
 static_assert(VOXEL_DIRECTION_OFFSET + VOXEL_DIRECTION_BITS <= 32, "");
+static_assert(VOXEL_SHADOW_OFFSET + VOXEL_SHADOW_BITS <= 32, "");
 
 static uint32_t pack(
     const block_t block,
@@ -61,6 +62,7 @@ static uint32_t pack(
     voxel |= d << VOXEL_U_OFFSET;
     voxel |= e << VOXEL_V_OFFSET;
     voxel |= direction << VOXEL_DIRECTION_OFFSET;
+    voxel |= block_shadow(block) << VOXEL_SHADOW_OFFSET;
     return voxel;
 }
 
@@ -106,6 +108,7 @@ static uint32_t pack_sprite(
     voxel |= c << VOXEL_Z_OFFSET;
     voxel |= d << VOXEL_U_OFFSET;
     voxel |= e << VOXEL_V_OFFSET;
+    voxel |= block_shadow(block) << VOXEL_SHADOW_OFFSET;
     return voxel;
 }
 
@@ -206,7 +209,7 @@ static void fill(
 
 bool voxmesh_vbo(
     chunk_t* chunk,
-    chunk_t* neighbors[DIRECTION_3],
+    const chunk_t* neighbors[DIRECTION_3],
     const int height,
     SDL_GPUDevice* device,
     SDL_GPUTransferBuffer** opaque_tbo,
@@ -304,7 +307,7 @@ bool voxmesh_vbo(
         }
         if (chunk->opaque_size)
         {
-            opaque_data = SDL_MapGPUTransferBuffer(device, *opaque_tbo, false);
+            opaque_data = SDL_MapGPUTransferBuffer(device, *opaque_tbo, true);
             if (!opaque_data)
             {
                 SDL_Log("Failed to map tbo buffer: %s", SDL_GetError());
@@ -313,7 +316,7 @@ bool voxmesh_vbo(
         }
         if (chunk->transparent_size)
         {
-            transparent_data = SDL_MapGPUTransferBuffer(device, *transparent_tbo, false);
+            transparent_data = SDL_MapGPUTransferBuffer(device, *transparent_tbo, true);
             if (!transparent_data)
             {
                 SDL_Log("Failed to map tbo buffer: %s", SDL_GetError());
