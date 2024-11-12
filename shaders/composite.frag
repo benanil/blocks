@@ -9,7 +9,7 @@ layout(set = 2, binding = 1) uniform sampler2D s_position;
 layout(set = 2, binding = 2) uniform sampler2D s_uv;
 layout(set = 2, binding = 3) uniform usampler2D s_voxel;
 layout(set = 2, binding = 4) uniform sampler2D s_shadow;
-layout(set = 2, binding = 5) uniform sampler2D s_edge;
+layout(set = 2, binding = 5) uniform sampler2D s_ssao;
 layout(set = 3, binding = 0) uniform t_player_position
 {
     vec3 u_player_position;
@@ -33,11 +33,10 @@ void main()
         discard;
     }
     const vec4 shadow_position = bias * u_shadow_matrix * vec4(position, 1.0);
-    const vec3 ndc = shadow_position.xyz / shadow_position.w;
-    const bool shadow = get_shadow(voxel) != 0 && get_shadowed(
-        get_normal(voxel), -u_shadow_vector, ndc, s_shadow);
+    const bool shadowed = get_shadow(voxel) && get_shadowed(get_normal(voxel),
+        -u_shadow_vector, shadow_position.xyz / shadow_position.w, s_shadow);
     const vec4 color = texture(s_atlas, uv);
-    const bool edge = bool(texture(s_edge, i_uv).r);
+    const float ssao = texture(s_ssao, i_uv).r;
     const float fog = get_fog(position.xz, u_player_position.xz);
-    o_color = get_color(color, shadow, edge, fog);
+    o_color = get_color(color, shadowed, ssao, fog);
 }

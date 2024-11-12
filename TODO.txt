@@ -1,13 +1,14 @@
-- replace edge with R8_INT or R8_UINT
-  - https://github.com/libsdl-org/SDL/pull/11347
-- blur edge for ssao?
+- performance
+  - shadow pass takes over half the frame time
+    - shadow cascades
+  - precalculate ssao randomness
+  - indirect rendering
 - seeded world generation
 - text rendering
-- indirect rendering
-- shadow cascades
 - collision
 - chunk transparency
 - chunk paging
+- day night cycle
 - multisampling
 - fix near plane clipping
 - fix texture bleeding
