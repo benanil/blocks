@@ -134,11 +134,58 @@ static void ortho(
     matrix[3][3] = 1.0f;
 }
 
+static void frustum(
+    float planes[6][4],
+    const float a[4][4])
+{
+    planes[0][0] = a[0][3] + a[0][0];
+    planes[0][1] = a[1][3] + a[1][0];
+    planes[0][2] = a[2][3] + a[2][0];
+    planes[0][3] = a[3][3] + a[3][0];
+    planes[1][0] = a[0][3] - a[0][0];
+    planes[1][1] = a[1][3] - a[1][0];
+    planes[1][2] = a[2][3] - a[2][0];
+    planes[1][3] = a[3][3] - a[3][0];
+    planes[2][0] = a[0][3] + a[0][1];
+    planes[2][1] = a[1][3] + a[1][1];
+    planes[2][2] = a[2][3] + a[2][1];
+    planes[2][3] = a[3][3] + a[3][1];
+    planes[3][0] = a[0][3] - a[0][1];
+    planes[3][1] = a[1][3] - a[1][1];
+    planes[3][2] = a[2][3] - a[2][1];
+    planes[3][3] = a[3][3] - a[3][1];
+    planes[4][0] = a[0][3] + a[0][2];
+    planes[4][1] = a[1][3] + a[1][2];
+    planes[4][2] = a[2][3] + a[2][2];
+    planes[4][3] = a[3][3] + a[3][2];
+    planes[5][0] = a[0][3] - a[0][2];
+    planes[5][1] = a[1][3] - a[1][2];
+    planes[5][2] = a[2][3] - a[2][2];
+    planes[5][3] = a[3][3] - a[3][2];
+    for (int i = 0; i < 6; ++i)
+    {
+        float length = 0.0f;
+        length += planes[i][0] * planes[i][0];
+        length += planes[i][1] * planes[i][1];
+        length += planes[i][2] * planes[i][2];
+        length = sqrtf(length);
+        if (length < EPSILON)
+        {
+            continue;
+        }
+        planes[i][0] /= length;
+        planes[i][1] /= length;
+        planes[i][2] /= length;
+        planes[i][3] /= length;
+    }
+}
+
 void camera_init(
     camera_t* camera,
-    const bool ortho)
+    const camera_type_t type)
 {
     assert(camera);
+    camera->type = type;
     camera->x = 0.0f;
     camera->y = 0.0f;
     camera->z = 0.0f;
@@ -149,8 +196,7 @@ void camera_init(
     camera->fov = rad(90.0f);
     camera->near = 1.0f;
     camera->far = 300.0f;
-    camera->size = 300.0f;
-    camera->ortho = ortho;
+    camera->ortho = 300.0f;
     camera->dirty = true;
 }
 
@@ -168,10 +214,10 @@ void camera_update(camera_t* camera)
     multiply(camera->view, camera->proj, camera->view);
     rotate(camera->proj, 0.0f, 1.0f, 0.0f, -camera->yaw);
     multiply(camera->view, camera->proj, camera->view);
-    if (camera->ortho)
+    if (camera->type == CAMERA_TYPE_ORTHO)
     {
-        const float w = camera->size;
-        ortho(camera->proj, -w, w, -w, w, -camera->far, camera->far);
+        const float o = camera->ortho;
+        ortho(camera->proj, -o, o, -o, o, -camera->far, camera->far);
     }
     else
     {
@@ -179,6 +225,7 @@ void camera_update(camera_t* camera)
         perspective(camera->proj, a, camera->fov, camera->near, camera->far);
     }
     multiply(camera->matrix, camera->proj, camera->view);
+    frustum(camera->planes, camera->matrix);
     camera->dirty = false;
 }
 
@@ -190,6 +237,10 @@ void camera_viewport(
     assert(camera);
     assert(width > 0.0f);
     assert(height > 0.0f);
+    if (camera->width == width && camera->height == height)
+    {
+        return;
+    }
     camera->width = width;
     camera->height = height;
     camera->dirty = true;
@@ -209,9 +260,10 @@ void camera_move(
     const float s = sinf(camera->yaw);
     const float c = cosf(camera->yaw);
     const float a = sinf(camera->pitch);
-    camera->x += s * z + c * x;
+    const float b = cosf(camera->pitch);
+    camera->x += b * (s * z) + c * x;
     camera->y += y + z * a;
-    camera->z -= c * z - s * x;
+    camera->z -= b * (c * z) - s * x;
     camera->dirty = true;
 }
 
@@ -316,37 +368,19 @@ bool camera_test(
     const float c)
 {
     assert(camera);
-    const float points[][3] =
+    const float s = x + a;
+    const float t = y + b;
+    const float p = z + c;
+    for (int i = 0; i < 6; ++i)
     {
-        { x,     y,     z     },
-        { x + a, y,     z     },
-        { x,     y + b, z     },
-        { x,     y,     z + c },
-        { x + a, y + b, z     },
-        { x,     y + b, z + c },
-        { x + a, y,     z + c },
-        { x + a, y + b, z + c },
-    };
-    float d, e, f;
-    camera_vector(camera, &d, &e, &f);
-    for (int i = 0; i < 8; i++)
-    {
-        float s = points[i][0] - camera->x;
-        float t = points[i][1] - camera->y;
-        float p = points[i][2] - camera->z;
-        const float length = sqrtf(s * s + t * t + p * p);
-        if (length < max3(a, b, c))
+        const float *plane = camera->planes[i];
+        const float q = plane[0] >= 0.0f ? s : x;
+        const float u = plane[1] >= 0.0f ? t : y;
+        const float v = plane[2] >= 0.0f ? p : z;
+        if (plane[0] * q + plane[1] * u + plane[2] * v + plane[3] < 0.0f)
         {
-            return true;
-        }
-        s /= length;
-        t /= length;
-        p /= length;
-        const float dot = d * s + e * t + f * p;
-        if (acos(dot) < camera->fov / 1.25)
-        {
-            return true;
+            return false;
         }
     }
-    return false;
+    return true;
 }
