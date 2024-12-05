@@ -55,7 +55,8 @@ static sqlite3_stmt* set_block_stmt;
 static sqlite3_stmt* get_blocks_stmt;
 static sqlite3* handle;
 
-static int loop(void* args)
+static int loop(
+    void* args)
 {
     (void) args;
     sqlite3_exec(handle, "BEGIN;", NULL, NULL, NULL);
@@ -107,7 +108,8 @@ static int loop(void* args)
     return 0;
 }
 
-bool database_init(const char* file)
+bool database_init(
+    const char* file)
 {
     assert(file);
     if (sqlite3_open(file, &handle))
@@ -131,7 +133,8 @@ bool database_init(const char* file)
         "    x INTEGER NOT NULL,"
         "    y INTEGER NOT NULL,"
         "    z INTEGER NOT NULL,"
-        "    data INTEGER NOT NULL"
+        "    data INTEGER NOT NULL,"
+        "    PRIMARY KEY (a, c, x, y, z)"
         ");";
     if (sqlite3_exec(handle, players_table, NULL, NULL, NULL))
     {
@@ -207,7 +210,7 @@ void database_free()
     job_t job;
     job.type = JOB_TYPE_QUIT;
     mtx_lock(&mtx);
-    while (!queue_append(&queue, &job, false))
+    while (!queue_append(&queue, &job))
     {
         SDL_Log("Failed to add quit job");
     }
@@ -228,7 +231,7 @@ void database_commit()
     job_t job;
     job.type = JOB_TYPE_COMMIT;
     mtx_lock(&mtx);
-    if (!queue_append(&queue, &job, false))
+    if (!queue_append(&queue, &job))
     {
         SDL_Log("Failed to add commit job");
     }
@@ -253,7 +256,7 @@ void database_set_player(
     job.player_pitch = pitch;
     job.player_yaw = yaw;
     mtx_lock(&mtx);
-    if (!queue_append(&queue, &job, false))
+    if (!queue_append(&queue, &job))
     {
         SDL_Log("Failed to add player job");
     }
@@ -307,7 +310,7 @@ void database_set_block(
     job.block_z = z;
     job.block_id = block;
     mtx_lock(&mtx);
-    if (!queue_append(&queue, &job, false))
+    if (!queue_append(&queue, &job))
     {
         SDL_Log("Failed to add block job");
     }

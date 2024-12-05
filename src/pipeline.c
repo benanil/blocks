@@ -9,7 +9,6 @@ static SDL_GPUDevice* device;
 static SDL_GPUGraphicsPipeline* pipelines[PIPELINE_COUNT];
 
 static SDL_GPUShader* load(
-    SDL_GPUDevice* device,
     const char* file,
     const int uniforms,
     const int samplers)
@@ -46,12 +45,13 @@ static SDL_GPUShader* load(
     return shader;
 }
 
-static SDL_GPUGraphicsPipeline* load_sky(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_sky(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "sky.vert", 2, 0),
-        .fragment_shader = load(device, "sky.frag", 0, 0),
+        .vertex_shader = load("sky.vert", 2, 0),
+        .fragment_shader = load("sky.frag", 0, 0),
         .target_info =
         {
             .num_color_targets = 1,
@@ -89,15 +89,16 @@ static SDL_GPUGraphicsPipeline* load_sky(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_shadow(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_shadow(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "shadow.vert", 2, 0),
-        .fragment_shader = load(device, "default.frag", 0, 0),
+        .vertex_shader = load("shadow.vert", 2, 0),
+        .fragment_shader = load("default.frag", 0, 0),
         .target_info =
         {
-            .has_depth_stencil_target = 1,
+            .has_depth_stencil_target = true,
             .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
         },
         .vertex_input_state =
@@ -119,12 +120,6 @@ static SDL_GPUGraphicsPipeline* load_shadow(SDL_Window* window)
             .enable_depth_test = 1,
             .enable_depth_write = 1,
             .compare_op = SDL_GPU_COMPAREOP_LESS,
-        },
-        .rasterizer_state =
-        {
-            .cull_mode = SDL_GPU_CULLMODE_BACK,
-            .front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
-            .fill_mode = SDL_GPU_FILLMODE_FILL,
         },
     };
     SDL_GPUGraphicsPipeline* pipeline = NULL;
@@ -141,12 +136,13 @@ static SDL_GPUGraphicsPipeline* load_shadow(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_opaque(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_opaque(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "opaque.vert", 3, 0),
-        .fragment_shader = load(device, "opaque.frag", 0, 1),
+        .vertex_shader = load("opaque.vert", 3, 0),
+        .fragment_shader = load("opaque.frag", 0, 1),
         .target_info =
         {
             .num_color_targets = 3,
@@ -160,7 +156,7 @@ static SDL_GPUGraphicsPipeline* load_opaque(SDL_Window* window)
             {
                 .format = SDL_GPU_TEXTUREFORMAT_R32_UINT,
             }},
-            .has_depth_stencil_target = 1,
+            .has_depth_stencil_target = true,
             .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
         },
         .vertex_input_state =
@@ -187,7 +183,6 @@ static SDL_GPUGraphicsPipeline* load_opaque(SDL_Window* window)
         {
             .cull_mode = SDL_GPU_CULLMODE_BACK,
             .front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
-            .fill_mode = SDL_GPU_FILLMODE_FILL,
         },
     };
     SDL_GPUGraphicsPipeline* pipeline = NULL;
@@ -204,12 +199,13 @@ static SDL_GPUGraphicsPipeline* load_opaque(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_ssao(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_ssao(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "default.vert", 0, 0),
-        .fragment_shader = load(device, "ssao.frag", 0, 3),
+        .vertex_shader = load("default.vert", 0, 0),
+        .fragment_shader = load("ssao.frag", 0, 3),
         .target_info =
         {
             .num_color_targets = 1,
@@ -247,12 +243,13 @@ static SDL_GPUGraphicsPipeline* load_ssao(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_composite(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_composite(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "default.vert", 0, 0),
-        .fragment_shader = load(device, "composite.frag", 3, 6),
+        .vertex_shader = load("default.vert", 0, 0),
+        .fragment_shader = load("composite.frag", 3, 6),
         .target_info =
         {
             .num_color_targets = 1,
@@ -290,12 +287,13 @@ static SDL_GPUGraphicsPipeline* load_composite(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_transparent(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_transparent(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "transparent.vert", 4, 0),
-        .fragment_shader = load(device, "transparent.frag", 1, 2),
+        .vertex_shader = load("transparent.vert", 4, 0),
+        .fragment_shader = load("transparent.frag", 1, 2),
         .target_info =
         {
             .num_color_targets = 1,
@@ -304,7 +302,7 @@ static SDL_GPUGraphicsPipeline* load_transparent(SDL_Window* window)
                 .format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                 .blend_state =
                 {
-                    .enable_blend = 1,
+                    .enable_blend = true,
                     .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
                     .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
                     .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
@@ -313,7 +311,7 @@ static SDL_GPUGraphicsPipeline* load_transparent(SDL_Window* window)
                     .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
                 },
             }},
-            .has_depth_stencil_target = 1,
+            .has_depth_stencil_target = true,
             .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
         },
         .vertex_input_state =
@@ -332,13 +330,9 @@ static SDL_GPUGraphicsPipeline* load_transparent(SDL_Window* window)
         },
         .depth_stencil_state =
         {
-            .enable_depth_test = 1,
-            .enable_depth_write = 0,
+            .enable_depth_test = true,
+            .enable_depth_write = false,
             .compare_op = SDL_GPU_COMPAREOP_LESS,
-        },
-        .rasterizer_state =
-        {
-            .fill_mode = SDL_GPU_FILLMODE_FILL,
         },
     };
     SDL_GPUGraphicsPipeline* pipeline = NULL;
@@ -355,12 +349,13 @@ static SDL_GPUGraphicsPipeline* load_transparent(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_raycast(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_raycast(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "raycast.vert", 2, 0),
-        .fragment_shader = load(device, "raycast.frag", 0, 0),
+        .vertex_shader = load("raycast.vert", 2, 0),
+        .fragment_shader = load("raycast.frag", 0, 0),
         .target_info =
         {
             .num_color_targets = 1,
@@ -369,7 +364,7 @@ static SDL_GPUGraphicsPipeline* load_raycast(SDL_Window* window)
                 .format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                 .blend_state =
                 {
-                    .enable_blend = 1,
+                    .enable_blend = true,
                     .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
                     .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
                     .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
@@ -378,7 +373,7 @@ static SDL_GPUGraphicsPipeline* load_raycast(SDL_Window* window)
                     .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
                 },
             }},
-            .has_depth_stencil_target = 1,
+            .has_depth_stencil_target = true,
             .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
         },
         .vertex_input_state =
@@ -397,8 +392,8 @@ static SDL_GPUGraphicsPipeline* load_raycast(SDL_Window* window)
         },
         .depth_stencil_state =
         {
-            .enable_depth_test = 1,
-            .enable_depth_write = 1,
+            .enable_depth_test = true,
+            .enable_depth_write = true,
             .compare_op = SDL_GPU_COMPAREOP_LESS,
         },
     };
@@ -416,21 +411,22 @@ static SDL_GPUGraphicsPipeline* load_raycast(SDL_Window* window)
     return pipeline;
 }
 
-static SDL_GPUGraphicsPipeline* load_ui(SDL_Window* window)
+static SDL_GPUGraphicsPipeline* load_ui(
+    const SDL_GPUTextureFormat format)
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load(device, "default.vert", 0, 0),
-        .fragment_shader = load(device, "ui.frag", 2, 1),
+        .vertex_shader = load("default.vert", 0, 0),
+        .fragment_shader = load("ui.frag", 2, 1),
         .target_info =
         {
             .num_color_targets = 1,
             .color_target_descriptions = (SDL_GPUColorTargetDescription[])
             {{
-                .format = SDL_GetGPUSwapchainTextureFormat(device, window),
+                .format = format,
                 .blend_state =
                 {
-                    .enable_blend = 1,
+                    .enable_blend = true,
                     .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
                     .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
                     .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
@@ -471,23 +467,24 @@ static SDL_GPUGraphicsPipeline* load_ui(SDL_Window* window)
 
 bool pipeline_init(
     SDL_GPUDevice* handle,
-    SDL_Window* window)
+    const SDL_GPUTextureFormat format)
 {
     assert(handle);
-    assert(window);
+    assert(format);
     device = handle;
-    pipelines[PIPELINE_SKY] = load_sky(window);
-    pipelines[PIPELINE_SHADOW] = load_shadow(window);
-    pipelines[PIPELINE_OPAQUE] = load_opaque(window);
-    pipelines[PIPELINE_SSAO] = load_ssao(window);
-    pipelines[PIPELINE_COMPOSITE] = load_composite(window);
-    pipelines[PIPELINE_TRANSPARENT] = load_transparent(window);
-    pipelines[PIPELINE_RAYCAST] = load_raycast(window);
-    pipelines[PIPELINE_UI] = load_ui(window);
+    pipelines[PIPELINE_SKY] = load_sky(format);
+    pipelines[PIPELINE_SHADOW] = load_shadow(format);
+    pipelines[PIPELINE_OPAQUE] = load_opaque(format);
+    pipelines[PIPELINE_SSAO] = load_ssao(format);
+    pipelines[PIPELINE_COMPOSITE] = load_composite(format);
+    pipelines[PIPELINE_TRANSPARENT] = load_transparent(format);
+    pipelines[PIPELINE_RAYCAST] = load_raycast(format);
+    pipelines[PIPELINE_UI] = load_ui(format);
     for (pipeline_t pipeline = 0; pipeline < PIPELINE_COUNT; pipeline++)
     {
         if (!pipelines[pipeline])
         {
+            SDL_Log("Failed to load pipeline: %d", pipeline);
             return false;
         }
     }

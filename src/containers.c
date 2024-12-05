@@ -22,7 +22,8 @@ void queue_init(
     assert(queue->data);
 }
 
-void queue_free(queue_t* queue)
+void queue_free(
+    queue_t* queue)
 {
     assert(queue);
     free(queue->data);
@@ -31,30 +32,24 @@ void queue_free(queue_t* queue)
 
 bool queue_append(
     queue_t* queue,
-    const void* item,
-    const bool priority)
+    const void* item)
 {
     assert(queue);
     assert(queue->data);
     assert(item);
-    if ((queue->tail + 1) % queue->size == queue->head)
+    const int tail = (queue->tail + 1) % queue->size;
+    if (tail == queue->head)
     {
         return false;
     }
-    if (priority)
-    {
-        queue->head = (queue->head - 1 + queue->size) % queue->size;
-        memcpy(queue->data + queue->head * queue->stride, item, queue->stride);
-    }
-    else
-    {
-        memcpy(queue->data + queue->tail * queue->stride, item, queue->stride);
-        queue->tail = (queue->tail + 1) % queue->size;
-    }
+    memcpy(queue->data + queue->tail * queue->stride, item, queue->stride);
+    queue->tail = tail;
     return true;
 }
 
-bool queue_remove(queue_t* queue, void* item)
+bool queue_remove(
+    queue_t* queue,
+    void* item)
 {
     assert(queue);
     assert(queue->data);
@@ -127,7 +122,8 @@ void group_set_block(
     chunk->empty = false;
 }
 
-void terrain_init(terrain_t* terrain)
+void terrain_init(
+    terrain_t* terrain)
 {
     assert(terrain);
     terrain->x = INT_MAX;
@@ -142,7 +138,8 @@ void terrain_init(terrain_t* terrain)
     }
 }
 
-void terrain_free(terrain_t* terrain)
+void terrain_free(
+    terrain_t* terrain)
 {
     assert(terrain);
     for (int x = 0; x < WORLD_X; x++)
