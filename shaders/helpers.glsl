@@ -13,26 +13,6 @@ const vec3 normals[6] = vec3[6]
     vec3( 0,-1, 0 )
 );
 
-const mat4 bias = mat4
-(
-    0.5,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-   -0.5,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    0.5,
-    0.5,
-    0.0,
-    1.0
-);
-
 vec3 get_position(
     const uint voxel)
 {
@@ -87,7 +67,7 @@ bool get_shadowed(
 vec3 get_sky(
     const float y)
 {
-    return mix(vec3(0.3, 0.6, 0.9), vec3(0.8, 0.95, 1.0), max(y - 0.6, 0.0));
+    return mix(vec3(0.3, 0.6, 0.9), vec3(0.8, 0.95, 1.0), clamp(y, 0.0, 0.8));
 }
 
 float get_fog(
@@ -105,23 +85,29 @@ float get_random(
 vec4 get_color(
     const sampler2D atlas,
     const sampler2D shadowmap,
+    const vec3 position,
     const vec2 uv,
     const vec3 normal,
+    const vec3 player_position,
     const vec3 shadow_position,
     const vec3 shadow_vector,
     const bool shadowed,
     const float fog,
     const float ssao)
 {
+    vec3 shadow_uv;
+    shadow_uv.x = shadow_position.x * 0.5 + 0.5;
+    shadow_uv.y = 1.0 - (shadow_position.y * 0.5 + 0.5);
+    shadow_uv.z = shadow_position.z;
     float a;
     float b;
     float c;
     const float angle = dot(normal, -shadow_vector);
-    const float depth = shadow_position.z - 0.001;
+    const float depth = shadow_uv.z - 0.001;
     if (shadowed && ((angle < 0.0) || (
-        all(greaterThanEqual(shadow_position, vec3(0.0))) &&
-        all(lessThanEqual(shadow_position, vec3(1.0))) &&
-        (depth > texture(shadowmap, shadow_position.xy).x))))
+        all(greaterThanEqual(shadow_uv, vec3(0.0))) &&
+        all(lessThanEqual(shadow_uv, vec3(1.0))) &&
+        (depth > texture(shadowmap, shadow_uv.xy).x))))
     {
         a = ssao * 0.2;
         b = 0.0;
@@ -135,7 +121,10 @@ vec4 get_color(
     }
     const vec4 color = texture(atlas, uv);
     const vec4 composite = vec4(color.xyz * (a + b + c + 0.3), color.a);
-    const vec4 sky = vec4(get_sky(0.0), 1.0);
+    const float dy = position.y - player_position.y;
+    const float dx = distance(position.xz, player_position.xz);
+    const float pitch = atan(dy, dx);
+    const vec4 sky = vec4(get_sky(pitch), 1.0);
     return mix(composite, sky, fog);
 }
 

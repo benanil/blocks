@@ -32,12 +32,14 @@ void main()
     {
         discard;
     }
-    const vec4 shadow_position = bias * u_shadow_matrix * vec4(position, 1.0);
+    const vec4 shadow_position = u_shadow_matrix * vec4(position, 1.0);
     o_color = get_color(
         s_atlas,
         s_shadowmap,
+        position,
         uv,
         get_normal(voxel),
+        u_player_position,
         shadow_position.xyz / shadow_position.w,
         u_shadow_vector,
         get_shadowed(voxel),
