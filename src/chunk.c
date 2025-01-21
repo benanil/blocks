@@ -6,6 +6,31 @@
 #include "chunk.h"
 #include "helpers.h"
 
+block_t chunk_get_block(
+    const chunk_t* chunk,
+    const int x,
+    const int y,
+    const int z)
+{
+    assert(chunk);
+    assert(chunk_in(x, y, z));
+    assert(!chunk->load);
+    return chunk->blocks[x][y][z];
+}
+
+void chunk_set_block(
+    chunk_t* chunk,
+    const int x,
+    const int y,
+    const int z,
+    const block_t block)
+{
+    assert(chunk);
+    assert(chunk_in(x, y, z));
+    chunk->blocks[x][y][z] = block;
+    chunk->skip = false;
+}
+
 void chunk_wrap(
     int* x,
     int* y,
@@ -33,38 +58,6 @@ bool chunk_in(
         z < CHUNK_Z;
 }
 
-block_t group_get_block(
-    const group_t* group,
-    const int x,
-    const int y,
-    const int z)
-{
-    assert(group);
-    const int a = y / CHUNK_Y;
-    const int b = y - a * CHUNK_Y;
-    assert(a < GROUP_CHUNKS);
-    const chunk_t* chunk = &group->chunks[a];
-    assert(chunk_in(x, b, z));
-    return chunk->blocks[x][b][z];
-}
-
-void group_set_block(
-    group_t* group,
-    const int x,
-    const int y,
-    const int z,
-    const block_t block)
-{
-    assert(group);
-    const int a = y / CHUNK_Y;
-    const int b = y - a * CHUNK_Y;
-    assert(a < GROUP_CHUNKS);
-    chunk_t* chunk = &group->chunks[a];
-    assert(chunk_in(x, b, z));
-    chunk->blocks[x][b][z] = block;
-    chunk->empty = false;
-}
-
 void terrain_init(
     terrain_t* terrain)
 {
@@ -72,12 +65,10 @@ void terrain_init(
     terrain->x = INT_MAX;
     terrain->z = INT_MAX;
     for (int x = 0; x < WORLD_X; x++)
+    for (int z = 0; z < WORLD_Z; z++)
     {
-        for (int z = 0; z < WORLD_Z; z++)
-        {
-            terrain->groups[x][z] = calloc(1, sizeof(group_t));
-            assert(terrain->groups[x][z]);
-        }
+        terrain->chunks[x][z] = calloc(1, sizeof(chunk_t));
+        assert(terrain->chunks[x][z]);
     }
 }
 
@@ -86,24 +77,22 @@ void terrain_free(
 {
     assert(terrain);
     for (int x = 0; x < WORLD_X; x++)
+    for (int z = 0; z < WORLD_Z; z++)
     {
-        for (int z = 0; z < WORLD_Z; z++)
-        {
-            free(terrain->groups[x][z]);
-            terrain->groups[x][z] = NULL;
-        }
+        free(terrain->chunks[x][z]);
+        terrain->chunks[x][z] = NULL;
     }
 }
 
-group_t* terrain_get(
+chunk_t* terrain_get(
     const terrain_t* terrain,
     const int x,
     const int z)
 {
     assert(terrain);
     assert(terrain_in(terrain, x, z));
-    assert(terrain->groups[x][z]);
-    return terrain->groups[x][z];
+    assert(terrain->chunks[x][z]);
+    return terrain->chunks[x][z];
 }
 
 bool terrain_in(
@@ -136,7 +125,7 @@ void terrain_neighbors(
     terrain_t* terrain,
     const int x,
     const int z,
-    group_t* neighbors[DIRECTION_2])
+    chunk_t* neighbors[DIRECTION_2])
 {
     assert(terrain);
     assert(terrain_in(terrain, x, z));
@@ -155,49 +144,49 @@ void terrain_neighbors(
     }
 }
 
-group_t* terrain_get2(
+chunk_t* terrain_get2(
     const terrain_t* terrain,
-    const int x,
-    const int z)
+    int x,
+    int z)
 {
     assert(terrain);
-    const int a = x - terrain->x;
-    const int b = z - terrain->z;
-    return terrain_get(terrain, a, b);
+    x -= terrain->x;
+    z -= terrain->z;
+    return terrain_get(terrain, x, z);
 }
 
 bool terrain_in2(
     const terrain_t* terrain,
-    const int x,
-    const int z)
+    int x,
+    int z)
 {
     assert(terrain);
-    const int a = x - terrain->x;
-    const int b = z - terrain->z;
-    return terrain_in(terrain, a, b);
+    x -= terrain->x;
+    z -= terrain->z;
+    return terrain_in(terrain, x, z);
 }
 
 bool terrain_border2(
     const terrain_t* terrain,
-    const int x,
-    const int z)
+    int x,
+    int z)
 {
     assert(terrain);
-    const int a = x - terrain->x;
-    const int b = z - terrain->z;
-    return terrain_border(terrain, a, b);
+    x -= terrain->x;
+    z -= terrain->z;
+    return terrain_border(terrain, x, z);
 }
 
 void terrain_neighbors2(
     terrain_t* terrain,
-    const int x,
-    const int z,
-    group_t* neighbors[DIRECTION_2])
+    int x,
+    int z,
+    chunk_t* neighbors[DIRECTION_2])
 {
     assert(terrain);
-    const int a = x - terrain->x;
-    const int b = z - terrain->z;
-    terrain_neighbors(terrain, a, b, neighbors);
+    x -= terrain->x;
+    z -= terrain->z;
+    terrain_neighbors(terrain, x, z, neighbors);
 }
 
 int* terrain_move(
@@ -217,42 +206,38 @@ int* terrain_move(
     }
     terrain->x = x;
     terrain->z = z;
-    group_t* in[WORLD_X][WORLD_Z] = {0};
-    group_t* out[WORLD_GROUPS];
-    int* indices = malloc(WORLD_GROUPS * 2 * sizeof(int));
+    chunk_t* in[WORLD_X][WORLD_Z] = {0};
+    chunk_t* out[WORLD_CHUNKS];
+    int* indices = malloc(WORLD_CHUNKS * 2 * sizeof(int));
     assert(indices);
     for (int i = 0; i < WORLD_X; i++)
+    for (int j = 0; j < WORLD_Z; j++)
     {
-        for (int j = 0; j < WORLD_Z; j++)
+        const int c = i - a;
+        const int d = j - b;
+        if (terrain_in(terrain, c, d))
         {
-            const int c = i - a;
-            const int d = j - b;
-            if (terrain_in(terrain, c, d))
-            {
-                in[c][d] = terrain_get(terrain, i, j);
-            }
-            else
-            {
-                out[(*size)++] = terrain_get(terrain, i, j);
-            }
-            terrain->groups[i][j] = NULL;
+            in[c][d] = terrain_get(terrain, i, j);
         }
+        else
+        {
+            out[(*size)++] = terrain_get(terrain, i, j);
+        }
+        terrain->chunks[i][j] = NULL;
     }
-    memcpy(terrain->groups, in, sizeof(in));
+    memcpy(terrain->chunks, in, sizeof(in));
     int n = *size;
     for (int i = 0; i < WORLD_X; i++)
+    for (int j = 0; j < WORLD_Z; j++)
     {
-        for (int j = 0; j < WORLD_Z; j++)
+        if (terrain->chunks[i][j])
         {
-            if (terrain->groups[i][j])
-            {
-                continue;
-            }
-            --n;
-            terrain->groups[i][j] = out[n];
-            indices[n * 2 + 0] = i;
-            indices[n * 2 + 1] = j;
+            continue;
         }
+        --n;
+        terrain->chunks[i][j] = out[n];
+        indices[n * 2 + 0] = i;
+        indices[n * 2 + 1] = j;
     }
     assert(!n);
     return indices;

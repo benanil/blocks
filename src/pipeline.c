@@ -95,7 +95,7 @@ static SDL_GPUGraphicsPipeline* load_shadow(
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
         .vertex_shader = load("shadow.vert", 2, 0),
-        .fragment_shader = load("default.frag", 0, 0),
+        .fragment_shader = load("shadow.frag", 0, 0),
         .target_info =
         {
             .has_depth_stencil_target = true,
@@ -117,8 +117,8 @@ static SDL_GPUGraphicsPipeline* load_shadow(
         },
         .depth_stencil_state =
         {
-            .enable_depth_test = 1,
-            .enable_depth_write = 1,
+            .enable_depth_test = true,
+            .enable_depth_write = true,
             .compare_op = SDL_GPU_COMPAREOP_LESS,
         },
     };
@@ -175,8 +175,8 @@ static SDL_GPUGraphicsPipeline* load_opaque(
         },
         .depth_stencil_state =
         {
-            .enable_depth_test = 1,
-            .enable_depth_write = 1,
+            .enable_depth_test = true,
+            .enable_depth_write = true,
             .compare_op = SDL_GPU_COMPAREOP_LESS,
         },
         .rasterizer_state =
@@ -204,7 +204,7 @@ static SDL_GPUGraphicsPipeline* load_ssao(
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load("default.vert", 0, 0),
+        .vertex_shader = load("fullscreen.vert", 0, 0),
         .fragment_shader = load("ssao.frag", 0, 3),
         .target_info =
         {
@@ -248,7 +248,7 @@ static SDL_GPUGraphicsPipeline* load_composite(
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load("default.vert", 0, 0),
+        .vertex_shader = load("fullscreen.vert", 0, 0),
         .fragment_shader = load("composite.frag", 3, 6),
         .target_info =
         {
@@ -416,7 +416,7 @@ static SDL_GPUGraphicsPipeline* load_ui(
 {
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
-        .vertex_shader = load("default.vert", 0, 0),
+        .vertex_shader = load("fullscreen.vert", 0, 0),
         .fragment_shader = load("ui.frag", 2, 1),
         .target_info =
         {
@@ -505,10 +505,24 @@ void pipeline_free()
 }
 
 void pipeline_bind(
-    SDL_GPURenderPass* pass,
+    void* pass,
     const pipeline_t pipeline)
 {
     assert(pass);
     assert(pipeline < PIPELINE_COUNT);
-    SDL_BindGPUGraphicsPipeline(pass, pipelines[pipeline]);
+    switch (pipeline)
+    {
+    case PIPELINE_SKY:
+    case PIPELINE_SHADOW:
+    case PIPELINE_OPAQUE:
+    case PIPELINE_SSAO:
+    case PIPELINE_COMPOSITE:
+    case PIPELINE_TRANSPARENT:
+    case PIPELINE_RAYCAST:
+    case PIPELINE_UI:
+        SDL_BindGPUGraphicsPipeline(pass, pipelines[pipeline]);
+        break;
+    default:
+        assert(0);
+    }
 }
