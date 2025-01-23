@@ -2,8 +2,8 @@
 #define CONFIG_H
 
 #define APP_NAME "blocks"
-#define APP_WIDTH 1024
-#define APP_HEIGHT 768
+#define APP_WIDTH 1280
+#define APP_HEIGHT 720
 #define APP_VALIDATION 1
 #define APP_ICON BLOCK_ROSE
 
@@ -32,7 +32,6 @@
 #define WORLD_CHUNKS (WORLD_X * WORLD_Z)
 #define WORLD_WORKERS 4
 
-#define DATABASE_JOBS 100
 #define DATABASE_PATH "blocks.sqlite3"
 #define DATABASE_COOLDOWN 1000
 #define DATABASE_PLAYER 0
