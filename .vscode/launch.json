@@ -2,12 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "debug",
+            "name": "win32",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/blocks.exe",
             "cwd": "${workspaceFolder}/build/bin",
-            "preLaunchTask": "CMake: build"
-        }
+            "preLaunchTask": "CMake: build",
+        },
+        {
+            "name": "linux",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/blocks",
+            "cwd": "${workspaceFolder}/build/bin",
+            "preLaunchTask": "CMake: build",
+        },
     ]
 }

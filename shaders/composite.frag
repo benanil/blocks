@@ -43,6 +43,7 @@ void main()
         shadow_position.xyz / shadow_position.w,
         u_shadow_vector,
         get_shadowed(voxel),
+        get_occluded(voxel),
         get_fog(distance(position.xz, u_player_position.xz)),
         texture(s_ssao, i_uv).r,
         0.0);

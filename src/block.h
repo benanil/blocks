@@ -31,6 +31,8 @@ bool block_shadow(
     const block_t block);
 bool block_shadowed(
     const block_t block);
+bool block_occluded(
+    const block_t block);
 bool block_solid(
     const block_t block);
 bool block_sprite(

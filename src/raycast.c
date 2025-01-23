@@ -17,9 +17,8 @@ bool raycast(
     assert(x);
     assert(y);
     assert(z);
-    const float length = 10.0f;
     const float step = 0.02f;
-    for (float i = 0.0f; i < length; i += step)
+    for (float i = 0.0f; i < PLAYER_REACH; i += step)
     {
         float a = *x + dx * i;
         float b = *y + dy * i;

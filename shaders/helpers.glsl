@@ -17,20 +17,23 @@ vec3 get_position(
     const uint voxel)
 {
     return vec3(voxel >> VOXEL_X_OFFSET & VOXEL_X_MASK,
-        voxel >> VOXEL_Y_OFFSET & VOXEL_Y_MASK, voxel >> VOXEL_Z_OFFSET & VOXEL_Z_MASK);
+        voxel >> VOXEL_Y_OFFSET & VOXEL_Y_MASK,
+        voxel >> VOXEL_Z_OFFSET & VOXEL_Z_MASK);
 }
 
 vec2 get_atlas(
     const vec2 position)
 {
-    return vec2(position.x / ATLAS_WIDTH * ATLAS_FACE_WIDTH,
+    return vec2(
+        position.x / ATLAS_WIDTH * ATLAS_FACE_WIDTH,
         position.y / ATLAS_HEIGHT * ATLAS_FACE_HEIGHT);
 }
 
 vec2 get_uv(
     const uint voxel)
 {
-    return get_atlas(vec2(voxel >> VOXEL_U_OFFSET & VOXEL_U_MASK,
+    return get_atlas(vec2(
+        voxel >> VOXEL_U_OFFSET & VOXEL_U_MASK,
         voxel >> VOXEL_V_OFFSET & VOXEL_V_MASK));
 }
 
@@ -58,6 +61,12 @@ bool get_shadowed(
     return bool(voxel >> VOXEL_SHADOWED_OFFSET & VOXEL_SHADOWED_MASK);
 }
 
+bool get_occluded(
+    const uint voxel)
+{
+    return bool(voxel >> VOXEL_OCCLUDED_OFFSET & VOXEL_OCCLUDED_MASK);
+}
+
 vec3 get_sky(
     const float y)
 {
@@ -80,6 +89,7 @@ vec4 get_color(
     const vec3 shadow_position,
     const vec3 shadow_vector,
     const bool shadowed,
+    const bool occluded,
     const float fog,
     const float ssao,
     const float alpha)
@@ -99,18 +109,22 @@ vec4 get_color(
         (depth > texture(shadowmap, shadow_uv.xy).x))))
     {
         a = ssao * 0.2;
-        b = 0.0;
+        b = 0.3;
         c = 0.0;
     }
     else
     {
-        a = ssao * 0.3;
-        b = 0.4;
-        c = max(angle, 0.0) * 0.6;
+        a = ssao * 0.4;
+        b = 0.3;
+        c = max(angle, 0.0) * 1.2;
+    }
+    if (!occluded)
+    {
+        a = 0.7;
     }
     vec4 color = texture(atlas, uv);
     color.a = clamp(color.a + alpha, 0.0, 1.0);
-    const vec4 composite = vec4(color.xyz * (a + b + c + 0.3), color.a);
+    const vec4 composite = vec4(color.xyz * (a + b + c), color.a);
     const float dy = position.y - player_position.y;
     const float dx = distance(position.xz, player_position.xz);
     const float pitch = atan(dy, dx);

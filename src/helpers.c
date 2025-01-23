@@ -1,10 +1,4 @@
-#include <SDL3/SDL.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
-// #include <threads.h>
-#include "tinycthread.h"
 #include "helpers.h"
 
 const int directions[][3] =

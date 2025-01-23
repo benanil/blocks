@@ -2,9 +2,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "block.h"
+#include "chunk.h"
+#include "config.h"
 #include "helpers.h"
 #include "voxel.h"
-#include "world.h"
 
 static uint32_t pack(
     const block_t block,
@@ -23,6 +24,7 @@ static uint32_t pack(
     static_assert(VOXEL_DIRECTION_OFFSET + VOXEL_DIRECTION_BITS <= 32, "");
     static_assert(VOXEL_SHADOW_OFFSET + VOXEL_SHADOW_BITS <= 32, "");
     static_assert(VOXEL_SHADOWED_OFFSET + VOXEL_SHADOWED_BITS <= 32, "");
+    static_assert(VOXEL_OCCLUDED_OFFSET + VOXEL_OCCLUDED_BITS <= 32, "");
     assert(x <= VOXEL_X_MASK);
     assert(y <= VOXEL_Y_MASK);
     assert(z <= VOXEL_Z_MASK);
@@ -38,6 +40,7 @@ static uint32_t pack(
     voxel |= direction << VOXEL_DIRECTION_OFFSET;
     voxel |= block_shadow(block) << VOXEL_SHADOW_OFFSET;
     voxel |= block_shadowed(block) << VOXEL_SHADOWED_OFFSET;
+    voxel |= block_occluded(block) << VOXEL_OCCLUDED_OFFSET;
     return voxel;
 }
 
@@ -116,14 +119,14 @@ static uint32_t pack_sprite(
 static void fill(
     const chunk_t* chunk,
     const chunk_t* neighbors[DIRECTION_2],
-    uint32_t* datas[CHUNK_MESH_COUNT],
-    uint32_t sizes[CHUNK_MESH_COUNT],
-    const uint32_t capacities[CHUNK_MESH_COUNT])
+    uint32_t* datas[CHUNK_TYPE_COUNT],
+    uint32_t sizes[CHUNK_TYPE_COUNT],
+    const uint32_t capacities[CHUNK_TYPE_COUNT])
 {
     assert(chunk);
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        sizes[mesh] = 0;
+        sizes[type] = 0;
     }
     for (int x = 0; x < CHUNK_X; x++)
     for (int y = 0; y < CHUNK_Y; y++)
@@ -134,19 +137,19 @@ static void fill(
         {
             continue;
         }
-        chunk_mesh_t mesh;
+        chunk_type_t type;
         if (block_opaque(a))
         {
-            mesh = CHUNK_MESH_OPAQUE;
+            type = CHUNK_TYPE_OPAQUE;
         }
         else
         {
-            mesh = CHUNK_MESH_TRANSPARENT;
+            type = CHUNK_TYPE_TRANSPARENT;
         }
         if (block_sprite(a))
         {
-            sizes[mesh] += 4;
-            if (sizes[mesh] > capacities[mesh])
+            sizes[type] += 4;
+            if (sizes[type] > capacities[type])
             {
                 continue;
             }
@@ -154,8 +157,8 @@ static void fill(
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    const int j = sizes[mesh] * 4 - 4 * (direction + 1) + i;
-                    datas[mesh][j] = pack_sprite(a, x, y, z, direction, i);
+                    const int j = sizes[type] * 4 - 4 * (direction + 1) + i;
+                    datas[type][j] = pack_sprite(a, x, y, z, direction, i);
                 }            
             }
             continue;
@@ -183,18 +186,16 @@ static void fill(
             {
                 b = BLOCK_EMPTY;
             }
-            if (b != BLOCK_EMPTY && !block_sprite(b) && !(block_opaque(a) && !block_opaque(b)))
-            {
-                continue;
-            }
-            if (++sizes[mesh] > capacities[mesh])
+            if ((b != BLOCK_EMPTY && !block_sprite(b) &&
+                !(block_opaque(a) && !block_opaque(b))) ||
+                ++sizes[type] > capacities[type])
             {
                 continue;
             }
             for (int i = 0; i < 4; i++)
             {
-                const int j = sizes[mesh] * 4 - 4 + i;
-                datas[mesh][j] = pack_non_sprite(a, x, y, z, d, i);    
+                const int j = sizes[type] * 4 - 4 + i;
+                datas[type][j] = pack_non_sprite(a, x, y, z, d, i);
             }
         }
     }
@@ -204,20 +205,20 @@ bool voxel_vbo(
     chunk_t* chunk,
     const chunk_t* neighbors[DIRECTION_2],
     SDL_GPUDevice* device,
-    SDL_GPUTransferBuffer* tbos[CHUNK_MESH_COUNT],
-    uint32_t capacities[CHUNK_MESH_COUNT])
+    SDL_GPUTransferBuffer* tbos[CHUNK_TYPE_COUNT],
+    uint32_t capacities[CHUNK_TYPE_COUNT])
 {
     assert(chunk);
     assert(device);
-    uint32_t* datas[CHUNK_MESH_COUNT] = {0};
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    uint32_t* datas[CHUNK_TYPE_COUNT] = {0};
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (!tbos[mesh])
+        if (!tbos[type])
         {
             continue;
         }
-        datas[mesh] = SDL_MapGPUTransferBuffer(device, tbos[mesh], true);
-        if (!datas[mesh])
+        datas[type] = SDL_MapGPUTransferBuffer(device, tbos[type], true);
+        if (!datas[type])
         {
             SDL_Log("Failed to map tbo buffer: %s", SDL_GetError());
             return false;
@@ -229,18 +230,18 @@ bool voxel_vbo(
         datas,
         chunk->sizes,
         capacities);
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (datas[mesh])
+        if (datas[type])
         {
-            SDL_UnmapGPUTransferBuffer(device, tbos[mesh]);
-            datas[mesh] = NULL;
+            SDL_UnmapGPUTransferBuffer(device, tbos[type]);
+            datas[type] = NULL;
         }
     }
     bool status = false;
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (chunk->sizes[mesh])
+        if (chunk->sizes[type])
         {
             status = true;
             break;
@@ -251,9 +252,9 @@ bool voxel_vbo(
         return true;
     }
     status = false;
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (chunk->sizes[mesh] > capacities[mesh])
+        if (chunk->sizes[type] > capacities[type])
         {
             status = true;
             break;
@@ -261,37 +262,37 @@ bool voxel_vbo(
     }
     if (status)
     {
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
-            if (chunk->sizes[mesh] <= capacities[mesh])
+            if (chunk->sizes[type] <= capacities[type])
             {
                 continue;
             }
-            if (tbos[mesh])
+            if (tbos[type])
             {
-                SDL_ReleaseGPUTransferBuffer(device, tbos[mesh]);
-                tbos[mesh] = NULL;
-                capacities[mesh] = 0;
+                SDL_ReleaseGPUTransferBuffer(device, tbos[type]);
+                tbos[type] = NULL;
+                capacities[type] = 0;
             }
             SDL_GPUTransferBufferCreateInfo tbci = {0};
             tbci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-            tbci.size = chunk->sizes[mesh] * 16;
-            tbos[mesh] = SDL_CreateGPUTransferBuffer(device, &tbci);
-            if (!tbos[mesh])
+            tbci.size = chunk->sizes[type] * 16;
+            tbos[type] = SDL_CreateGPUTransferBuffer(device, &tbci);
+            if (!tbos[type])
             {
                 SDL_Log("Failed to create tbo buffer: %s", SDL_GetError());
                 return false;
             }
-            capacities[mesh] = chunk->sizes[mesh];
+            capacities[type] = chunk->sizes[type];
         }
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
-            if (!chunk->sizes[mesh])
+            if (!chunk->sizes[type])
             {
                 continue;
             }
-            datas[mesh] = SDL_MapGPUTransferBuffer(device, tbos[mesh], true);
-            if (!datas[mesh])
+            datas[type] = SDL_MapGPUTransferBuffer(device, tbos[type], true);
+            if (!datas[type])
             {
                 SDL_Log("Failed to map tbo buffer: %s", SDL_GetError());
                 return false;
@@ -303,37 +304,37 @@ bool voxel_vbo(
             datas,
             chunk->sizes,
             capacities);
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
-            if (datas[mesh])
+            if (datas[type])
             {
-                SDL_UnmapGPUTransferBuffer(device, tbos[mesh]);
-                datas[mesh] = NULL;
+                SDL_UnmapGPUTransferBuffer(device, tbos[type]);
+                datas[type] = NULL;
             }
         }
     }
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (chunk->sizes[mesh] <= chunk->capacities[mesh])
+        if (chunk->sizes[type] <= chunk->capacities[type])
         {
             continue;
         }
-        if (chunk->vbos[mesh])
+        if (chunk->vbos[type])
         {
-            SDL_ReleaseGPUBuffer(device, chunk->vbos[mesh]);
-            chunk->vbos[mesh] = NULL;
-            chunk->capacities[mesh] = 0;
+            SDL_ReleaseGPUBuffer(device, chunk->vbos[type]);
+            chunk->vbos[type] = NULL;
+            chunk->capacities[type] = 0;
         }
         SDL_GPUBufferCreateInfo bci = {0};
         bci.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-        bci.size = chunk->sizes[mesh] * 16;
-        chunk->vbos[mesh]= SDL_CreateGPUBuffer(device, &bci);
-        if (!chunk->vbos[mesh])
+        bci.size = chunk->sizes[type] * 16;
+        chunk->vbos[type]= SDL_CreateGPUBuffer(device, &bci);
+        if (!chunk->vbos[type])
         {
             SDL_Log("Failed to create vertex buffer: %s", SDL_GetError());
             return false;
         }
-        chunk->capacities[mesh] = chunk->sizes[mesh];
+        chunk->capacities[type] = chunk->sizes[type];
     }
     SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device);
     if (!commands)
@@ -349,15 +350,15 @@ bool voxel_vbo(
     }
     SDL_GPUTransferBufferLocation location = {0};
     SDL_GPUBufferRegion region = {0};
-    for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+    for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
     {
-        if (!chunk->sizes[mesh])
+        if (!chunk->sizes[type])
         {
             continue;
         }
-        location.transfer_buffer = tbos[mesh];
-        region.size = chunk->sizes[mesh] * 16;
-        region.buffer = chunk->vbos[mesh];
+        location.transfer_buffer = tbos[type];
+        region.size = chunk->sizes[type] * 16;
+        region.buffer = chunk->vbos[type];
         SDL_UploadToGPUBuffer(pass, &location, &region, 1);
     }
     SDL_EndGPUCopyPass(pass);

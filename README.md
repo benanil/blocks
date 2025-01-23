@@ -9,11 +9,32 @@ Tiny Minecraft clone in C and GLSL using the new SDL3 GPU API
 - Procedural world generation
 - Blocks and plants
 - Transparent blocks
-- Directional shadow mapping
+- Directional shadows
 - SSAO approximation
 - Persistent worlds
 
 ### Building
+
+#### Windows
+
+Install the [Vulkan SDK](https://www.lunarg.com/vulkan-sdk/) for glslc
+
+```bash
+git clone https://github.com/jsoulier/blocks --recurse-submodules
+cd blocks
+mkdir build
+cd build
+cmake ..
+cmake --build . --parallel 8 --config Release
+cd bin
+./blocks.exe
+```
+
+#### Linux
+
+```bash
+sudo apt install glslc
+```
 
 ```bash
 git clone https://github.com/jsoulier/blocks --recurse-submodules
@@ -21,9 +42,9 @@ cd blocks
 mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --parallel 8 --config Release
+cmake --build . --parallel 8
 cd bin
-./blocks.exe
+./blocks
 ```
 
 ### Controls

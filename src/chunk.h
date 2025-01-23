@@ -4,28 +4,36 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "block.h"
+#include "config.h"
 #include "helpers.h"
 
 typedef enum
 {
-    CHUNK_MESH_OPAQUE,
-    CHUNK_MESH_TRANSPARENT,
-    CHUNK_MESH_COUNT,
+    CHUNK_TYPE_OPAQUE,
+    CHUNK_TYPE_TRANSPARENT,
+    CHUNK_TYPE_COUNT,
 }
-chunk_mesh_t;
+chunk_type_t;
 
 typedef struct
 {
     block_t blocks[CHUNK_X][CHUNK_Y][CHUNK_Z];
-    SDL_GPUBuffer* vbos[CHUNK_MESH_COUNT];
-    uint32_t sizes[CHUNK_MESH_COUNT];
-    uint32_t capacities[CHUNK_MESH_COUNT];
-    bool skip;
+    SDL_GPUBuffer* vbos[CHUNK_TYPE_COUNT];
+    uint32_t sizes[CHUNK_TYPE_COUNT];
+    uint32_t capacities[CHUNK_TYPE_COUNT];
     bool load;
     bool mesh;
 }
 chunk_t;
 
+void chunk_wrap(
+    int* x,
+    int* y,
+    int* z);
+bool chunk_in(
+    const int x,
+    const int y,
+    const int z);
 block_t chunk_get_block(
     const chunk_t* chunk,
     const int x,
@@ -37,14 +45,6 @@ void chunk_set_block(
     const int y,
     const int z,
     const block_t block);
-void chunk_wrap(
-    int* x,
-    int* y,
-    int* z);
-bool chunk_in(
-    const int x,
-    const int y,
-    const int z);
 
 typedef struct
 {

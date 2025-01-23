@@ -230,7 +230,7 @@ void camera_update(
     camera->dirty = false;
 }
 
-void camera_viewport(
+void camera_set_viewport(
     camera_t* camera,
     const int width,
     const int height)
@@ -343,7 +343,7 @@ void camera_get_rotation(
     *yaw = camera->yaw;
 }
 
-void camera_vector(
+void camera_get_vector(
     const camera_t* camera,
     float* x,
     float* y,

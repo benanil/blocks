@@ -1,10 +1,8 @@
 #include <SDL3/SDL.h>
 #include <sqlite3.h>
+#include <tinycthread.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdlib.h>
-// #include <threads.h>
-#include "tinycthread.h"
 #include "block.h"
 #include "database.h"
 #include "chunk.h"
@@ -160,7 +158,7 @@ bool database_get_player(
     assert(yaw);
     mtx_lock(&mtx);
     sqlite3_bind_int(get_player_stmt, 1, id);
-    bool player = sqlite3_step(get_player_stmt) == SQLITE_ROW;
+    const bool player = sqlite3_step(get_player_stmt) == SQLITE_ROW;
     if (player)
     {
         *x = sqlite3_column_double(get_player_stmt, 0);

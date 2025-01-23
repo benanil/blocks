@@ -4,8 +4,9 @@
 
 typedef enum
 {
-    CAMERA_TYPE_PERSPECTIVE,
     CAMERA_TYPE_ORTHO,
+    CAMERA_TYPE_PERSPECTIVE,
+    CAMERA_TYPE_COUNT,
 }
 camera_type_t;
 
@@ -36,7 +37,7 @@ void camera_init(
     const camera_type_t type);
 void camera_update(
     camera_t* camera);
-void camera_viewport(
+void camera_set_viewport(
     camera_t* camera,
     const int width,
     const int height);
@@ -67,7 +68,7 @@ void camera_get_rotation(
     const camera_t* camera,
     float* pitch,
     float* yaw);
-void camera_vector(
+void camera_get_vector(
     const camera_t* camera,
     float* x,
     float* y,

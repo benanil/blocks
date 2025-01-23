@@ -1,12 +1,10 @@
 #include <SDL3/SDL.h>
-#include <math.h>
+#include <tinycthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <threads.h>
-#include "tinycthread.h"
 #include "block.h"
 #include "camera.h"
 #include "chunk.h"
@@ -38,8 +36,8 @@ typedef struct
     mtx_t mtx;
     cnd_t cnd;
     const job_t* job;
-    SDL_GPUTransferBuffer* tbos[CHUNK_MESH_COUNT];
-    uint32_t sizes[CHUNK_MESH_COUNT];
+    SDL_GPUTransferBuffer* tbos[CHUNK_TYPE_COUNT];
+    uint32_t sizes[CHUNK_TYPE_COUNT];
 }
 worker_t;
 
@@ -76,12 +74,12 @@ static int loop(
         {
         case JOB_TYPE_LOAD:
             assert(chunk->load);
+            assert(chunk->mesh);
             noise_generate(chunk, x, z);
             database_get_blocks(chunk, x, z);
             chunk->load = false;
             break;
         case JOB_TYPE_MESH:
-            assert(!chunk->skip);
             assert(!chunk->load);
             assert(chunk->mesh);
             chunk_t* neighbors[DIRECTION_2];
@@ -116,18 +114,6 @@ static void dispatch(
     mtx_unlock(&worker->mtx);
 }
 
-static void wait_for_worker(
-    worker_t* worker)
-{
-    assert(worker);
-    mtx_lock(&worker->mtx);
-    while (worker->job)
-    {
-        cnd_wait(&worker->cnd, &worker->mtx);
-    }
-    mtx_unlock(&worker->mtx);
-}
-
 bool world_init(
     SDL_GPUDevice* handle)
 {
@@ -137,7 +123,6 @@ bool world_init(
     for (int i = 0; i < WORLD_WORKERS; i++)
     {
         worker_t* worker = &workers[i];
-        memset(worker, 0, sizeof(worker_t));
         if (mtx_init(&worker->mtx, mtx_plain) != thrd_success)
         {
             SDL_Log("Failed to create mutex");
@@ -170,43 +155,41 @@ bool world_init(
 
 void world_free()
 {
-    job_t job;
-    job.type = JOB_TYPE_QUIT;
     for (int i = 0; i < WORLD_WORKERS; i++)
     {
-        worker_t* worker = &workers[i];
+        job_t job;
         job.type = JOB_TYPE_QUIT;
-        dispatch(worker, &job);
+        dispatch(&workers[i], &job);
     }
-    for (int x = 0; x < WORLD_X; x++)
-    for (int z = 0; z < WORLD_Z; z++)
-    {
-        chunk_t* chunk = terrain_get(&terrain, x, z);
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
-        {
-            if (chunk->vbos[mesh])
-            {
-                SDL_ReleaseGPUBuffer(device, chunk->vbos[mesh]);
-                chunk->vbos[mesh] = NULL;
-            }
-        }
-    }
-    terrain_free(&terrain);
     for (int i = 0; i < WORLD_WORKERS; i++)
     {
         worker_t* worker = &workers[i];
         thrd_join(worker->thrd, NULL);
         mtx_destroy(&worker->mtx);
         cnd_destroy(&worker->cnd);
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
-            if (worker->tbos[mesh])
+            if (worker->tbos[type])
             {
-                SDL_ReleaseGPUTransferBuffer(device, worker->tbos[mesh]);
-                worker->tbos[mesh] = NULL;
+                SDL_ReleaseGPUTransferBuffer(device, worker->tbos[type]);
+                worker->tbos[type] = NULL;
             }
         }
     }
+    for (int x = 0; x < WORLD_X; x++)
+    for (int z = 0; z < WORLD_Z; z++)
+    {
+        chunk_t* chunk = terrain_get(&terrain, x, z);
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
+        {
+            if (chunk->vbos[type])
+            {
+                SDL_ReleaseGPUBuffer(device, chunk->vbos[type]);
+                chunk->vbos[type] = NULL;
+            }
+        }
+    }
+    terrain_free(&terrain);
     if (ibo)
     {
         SDL_ReleaseGPUBuffer(device, ibo);
@@ -234,7 +217,6 @@ static void move(
         const int k = data[i * 2 + 1];
         chunk_t* chunk = terrain_get(&terrain, j, k);
         memset(chunk->blocks, 0, sizeof(chunk->blocks));
-        chunk->skip = true;
         chunk->load = true;
         chunk->mesh = true;
     }
@@ -262,7 +244,7 @@ void world_update(
             job->z = k;
             continue;
         }
-        if (chunk->skip || !chunk->mesh || terrain_border(&terrain, j, k))
+        if (!chunk->mesh || terrain_border(&terrain, j, k))
         {
             continue;
         }
@@ -294,7 +276,13 @@ void world_update(
     }
     for (int i = 0; i < n; i++)
     {
-        wait_for_worker(&workers[i]);
+        worker_t* worker = &workers[i];
+        mtx_lock(&worker->mtx);
+        while (worker->job)
+        {
+            cnd_wait(&worker->cnd, &worker->mtx);
+        }
+        mtx_unlock(&worker->mtx);
     }
     for (int i = 0; i < n; i++)
     {
@@ -304,9 +292,9 @@ void world_update(
             continue;
         }
         chunk_t* chunk = terrain_get(&terrain, job->x, job->z);
-        for (chunk_mesh_t mesh = 0; mesh < CHUNK_MESH_COUNT; mesh++)
+        for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
-            size = max(size, chunk->sizes[mesh]);
+            size = max(size, chunk->sizes[type]);
         }
     }
     if (size > ibo_size)
@@ -328,7 +316,7 @@ void world_render(
     const camera_t* camera,
     SDL_GPUCommandBuffer* commands,
     SDL_GPURenderPass* pass,
-    const chunk_mesh_t mesh)
+    const chunk_type_t type)
 {
     assert(commands);
     assert(pass);
@@ -343,26 +331,22 @@ void world_render(
     {
         int x;
         int z;
-        if (mesh == CHUNK_MESH_OPAQUE)
-        {
-            x = sorted[i][0] + terrain.x;
-            z = sorted[i][1] + terrain.z;
-        }
-        else
+        if (type == CHUNK_TYPE_TRANSPARENT)
         {
             x = sorted[WORLD_CHUNKS - i - 1][0] + terrain.x;
             z = sorted[WORLD_CHUNKS - i - 1][1] + terrain.z;
         }
+        else
+        {
+            x = sorted[i][0] + terrain.x;
+            z = sorted[i][1] + terrain.z;
+        }
         const chunk_t* chunk = terrain_get2(&terrain, x, z);
-        if (terrain_border2(&terrain, x, z)) 
+        if (terrain_border2(&terrain, x, z) || chunk->mesh || !chunk->sizes[type])
         {
             continue;
         }
-        if (chunk->skip || chunk->mesh || !chunk->sizes[mesh])
-        {
-            continue;
-        }
-        assert(chunk->sizes[mesh] <= ibo_size);
+        assert(chunk->sizes[type] <= ibo_size);
         x *= CHUNK_X;
         z *= CHUNK_Z;
         if (camera && !camera_test(camera, x, 0, z, CHUNK_X, CHUNK_Y, CHUNK_Z))
@@ -371,11 +355,10 @@ void world_render(
         }
         int32_t position[3] = { x, 0, z };
         SDL_GPUBufferBinding vbb = {0};
-        vbb.buffer = chunk->vbos[mesh];
+        vbb.buffer = chunk->vbos[type];
         SDL_PushGPUVertexUniformData(commands, 0, position, sizeof(position));
         SDL_BindGPUVertexBuffers(pass, 0, &vbb, 1);
-        SDL_DrawGPUIndexedPrimitives(pass, chunk->sizes[mesh] * 6, 1, 0, 0, 0);
-
+        SDL_DrawGPUIndexedPrimitives(pass, chunk->sizes[type] * 6, 1, 0, 0, 0);
     }
 }
 

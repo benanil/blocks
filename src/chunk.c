@@ -4,32 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "chunk.h"
+#include "config.h"
 #include "helpers.h"
-
-block_t chunk_get_block(
-    const chunk_t* chunk,
-    const int x,
-    const int y,
-    const int z)
-{
-    assert(chunk);
-    assert(chunk_in(x, y, z));
-    assert(!chunk->load);
-    return chunk->blocks[x][y][z];
-}
-
-void chunk_set_block(
-    chunk_t* chunk,
-    const int x,
-    const int y,
-    const int z,
-    const block_t block)
-{
-    assert(chunk);
-    assert(chunk_in(x, y, z));
-    chunk->blocks[x][y][z] = block;
-    chunk->skip = false;
-}
 
 void chunk_wrap(
     int* x,
@@ -56,6 +32,29 @@ bool chunk_in(
         x < CHUNK_X &&
         y < CHUNK_Y &&
         z < CHUNK_Z;
+}
+
+block_t chunk_get_block(
+    const chunk_t* chunk,
+    const int x,
+    const int y,
+    const int z)
+{
+    assert(chunk);
+    assert(chunk_in(x, y, z));
+    return chunk->blocks[x][y][z];
+}
+
+void chunk_set_block(
+    chunk_t* chunk,
+    const int x,
+    const int y,
+    const int z,
+    const block_t block)
+{
+    assert(chunk);
+    assert(chunk_in(x, y, z));
+    chunk->blocks[x][y][z] = block;
 }
 
 void terrain_init(
@@ -91,7 +90,6 @@ chunk_t* terrain_get(
 {
     assert(terrain);
     assert(terrain_in(terrain, x, z));
-    assert(terrain->chunks[x][z]);
     return terrain->chunks[x][z];
 }
 

@@ -2,13 +2,10 @@
 
 #include <SDL3/SDL.h>
 #include <assert.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include "config.h"
 
+#undef assert
 #undef min
 #undef max
-#undef assert
 
 #define EPSILON 0.000001
 #define PI 3.14159265359

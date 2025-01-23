@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include "block.h"
 #include "chunk.h"
-#include "helpers.h"
-#include "noise.h"
 
 bool database_init(
     const char* file);

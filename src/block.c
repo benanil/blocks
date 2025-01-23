@@ -42,6 +42,18 @@ bool block_shadowed(
     return 1;
 }
 
+bool block_occluded(
+    const block_t block)
+{
+    assert(block < BLOCK_COUNT);
+    switch (block)
+    {
+    case BLOCK_CLOUD:
+        return 0;
+    }
+    return 1;
+}
+
 bool block_solid(
     const block_t block)
 {

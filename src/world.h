@@ -17,7 +17,7 @@ void world_render(
     const camera_t* camera,
     SDL_GPUCommandBuffer* commands,
     SDL_GPURenderPass* pass,
-    const chunk_mesh_t mesh);
+    const chunk_type_t type);
 void world_set_block(
     int x,
     int y,

@@ -21,7 +21,7 @@ void main()
 {
     const vec2 position = vec2(gl_FragCoord.x, u_viewport.y - gl_FragCoord.y);
     const vec2 center = u_viewport / 2.0;
-    const vec2 ratio = vec2(u_viewport) / vec2(APP_WIDTH, APP_HEIGHT);
+    const vec2 ratio = vec2(u_viewport) / vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
     const float scale = min(ratio.x, ratio.y);
     const float block_width = 50 * scale;
     const vec2 block_start = u_corner + 10 * scale;

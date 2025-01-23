@@ -93,7 +93,7 @@ void noise_generate(
                 t * 0.2f,
                 2.0f,
                 0.5f,
-                3) * 0.5 + 0.5;
+                3) * 0.5f + 0.5f;
             if (plant > 0.8f &&
                 a > 2 && a < CHUNK_X - 2 &&
                 b > 2 && b < CHUNK_Z - 2)
@@ -107,7 +107,7 @@ void noise_generate(
                 for (int dz = -1; dz <= 1; dz++)
                 for (int dy = 0; dy < 2; dy++)
                 {
-                    if (dx != 0 || dz != 0 || dy != 0)
+                    if (dx || dz || dy)
                     {
                         chunk_set_block(chunk, a + dx, y + log + dy, b + dz, BLOCK_LEAVES);
                     }

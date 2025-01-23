@@ -29,11 +29,11 @@ bool test(
 void main()
 {
     const vec2 uv = texture(s_uv, i_uv).xy;
-    if (length(uv) == 0)
+    const uint voxel = texture(s_voxel, i_uv).x;
+    if (!get_occluded(voxel) || length(uv) == 0)
     {
         discard;
     }
-    const uint voxel = texture(s_voxel, i_uv).x;
     const vec4 position = texture(s_position, i_uv);
     const uint direction = get_direction(voxel);
     const vec2 size = 1.0 / textureSize(s_voxel, 0) * (1.0 / position.w) * 75.0;
