@@ -14,7 +14,6 @@ add_subdirectory(lib/SDL)
 add_executable(blocks WIN32
     lib/sqlite3/sqlite3.c
     lib/stb/stb.c
-    lib/tinycthread/tinycthread.c
     src/block.c
     src/camera.c
     src/chunk.c
@@ -33,7 +32,6 @@ if(UNIX)
 endif()
 target_include_directories(blocks PUBLIC lib/sqlite3)
 target_include_directories(blocks PUBLIC lib/stb)
-target_include_directories(blocks PUBLIC lib/tinycthread)
 set_target_properties(blocks PROPERTIES C_STANDARD 11)
 
 function(shader FILE)

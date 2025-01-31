@@ -1,6 +1,5 @@
 #include <SDL3/SDL.h>
 #include <sqlite3.h>
-#include <tinycthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include "block.h"
@@ -13,7 +12,7 @@ static sqlite3_stmt* set_player_stmt;
 static sqlite3_stmt* get_player_stmt;
 static sqlite3_stmt* set_block_stmt;
 static sqlite3_stmt* get_blocks_stmt;
-static mtx_t mtx;
+static SDL_Mutex* mtx;
 
 bool database_init(
     const char* file)
@@ -93,9 +92,10 @@ bool database_init(
         SDL_Log("Failed to create blocks index: %s", sqlite3_errmsg(handle));
         return false;
     }
-    if (mtx_init(&mtx, mtx_plain) != thrd_success)
+    mtx = SDL_CreateMutex();
+    if (!mtx)
     {
-        SDL_Log("Failed to create mutex");
+        SDL_Log("Failed to create mutex: %s", SDL_GetError());
         return false;
     }
     sqlite3_exec(handle, "BEGIN;", NULL, NULL, NULL);
@@ -104,7 +104,7 @@ bool database_init(
 
 void database_free()
 {
-    mtx_destroy(&mtx);
+    SDL_DestroyMutex(mtx);
     sqlite3_exec(handle, "COMMIT;", NULL, NULL, NULL);
     sqlite3_finalize(set_player_stmt);
     sqlite3_finalize(get_player_stmt);
@@ -115,9 +115,9 @@ void database_free()
 
 void database_commit()
 {
-    mtx_lock(&mtx);
+    SDL_LockMutex(mtx);
     sqlite3_exec(handle, "COMMIT; BEGIN;", NULL, NULL, NULL);
-    mtx_unlock(&mtx);
+    SDL_UnlockMutex(mtx);
 }
 
 void database_set_player(
@@ -128,7 +128,7 @@ void database_set_player(
     const float pitch,
     const float yaw)
 {
-    mtx_lock(&mtx);
+    SDL_LockMutex(mtx);
     sqlite3_bind_int(set_player_stmt, 1, id);
     sqlite3_bind_double(set_player_stmt, 2, x);
     sqlite3_bind_double(set_player_stmt, 3, y);
@@ -140,7 +140,7 @@ void database_set_player(
         SDL_Log("Failed to set player: %s", sqlite3_errmsg(handle));
     }
     sqlite3_reset(set_player_stmt);
-    mtx_unlock(&mtx);
+    SDL_UnlockMutex(mtx);
 }
 
 bool database_get_player(
@@ -156,7 +156,7 @@ bool database_get_player(
     assert(z);
     assert(pitch);
     assert(yaw);
-    mtx_lock(&mtx);
+    SDL_LockMutex(mtx);
     sqlite3_bind_int(get_player_stmt, 1, id);
     const bool player = sqlite3_step(get_player_stmt) == SQLITE_ROW;
     if (player)
@@ -168,7 +168,7 @@ bool database_get_player(
         *yaw = sqlite3_column_double(get_player_stmt, 4);
     }
     sqlite3_reset(get_player_stmt);
-    mtx_unlock(&mtx);
+    SDL_UnlockMutex(mtx);
     return player;
 }
 
@@ -180,7 +180,7 @@ void database_set_block(
     const int z,
     const block_t block)
 {
-    mtx_lock(&mtx);
+    SDL_LockMutex(mtx);
     sqlite3_bind_int(set_block_stmt, 1, a);
     sqlite3_bind_int(set_block_stmt, 2, c);
     sqlite3_bind_int(set_block_stmt, 3, x);
@@ -192,7 +192,7 @@ void database_set_block(
         SDL_Log("Failed to set block: %s", sqlite3_errmsg(handle));
     }
     sqlite3_reset(set_block_stmt);
-    mtx_unlock(&mtx);
+    SDL_UnlockMutex(mtx);
 }
 
 void database_get_blocks(
@@ -201,7 +201,7 @@ void database_get_blocks(
     const int c)
 {
     assert(chunk);
-    mtx_lock(&mtx);
+    SDL_LockMutex(mtx);
     sqlite3_bind_int(get_blocks_stmt, 1, a);
     sqlite3_bind_int(get_blocks_stmt, 2, c);
     while (sqlite3_step(get_blocks_stmt) == SQLITE_ROW)
@@ -213,5 +213,5 @@ void database_get_blocks(
         chunk_set_block(chunk, x, y, z, block);
     }
     sqlite3_reset(get_blocks_stmt);
-    mtx_unlock(&mtx);
+    SDL_UnlockMutex(mtx);
 }

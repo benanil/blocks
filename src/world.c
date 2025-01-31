@@ -1,5 +1,4 @@
 #include <SDL3/SDL.h>
-#include <tinycthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -32,9 +31,9 @@ job_t;
 
 typedef struct
 {
-    thrd_t thrd;
-    mtx_t mtx;
-    cnd_t cnd;
+    SDL_Thread* thrd;
+    SDL_Mutex* mtx;
+    SDL_Condition* cnd;
     const job_t* job;
     SDL_GPUTransferBuffer* tbos[CHUNK_TYPE_COUNT];
     uint32_t sizes[CHUNK_TYPE_COUNT];
@@ -55,16 +54,16 @@ static int loop(
     worker_t* worker = args;
     while (true)
     {
-        mtx_lock(&worker->mtx);
+        SDL_LockMutex(worker->mtx);
         while (!worker->job)
         {
-            cnd_wait(&worker->cnd, &worker->mtx);
+            SDL_WaitCondition(worker->cnd, worker->mtx);
         }
         if (worker->job->type == JOB_TYPE_QUIT)
         {
             worker->job = NULL;
-            cnd_signal(&worker->cnd);
-            mtx_unlock(&worker->mtx);
+            SDL_SignalCondition(worker->cnd);
+            SDL_UnlockMutex(worker->mtx);
             return 0;
         }
         const int x = terrain.x + worker->job->x;
@@ -95,8 +94,8 @@ static int loop(
             assert(0);
         }
         worker->job = NULL;
-        cnd_signal(&worker->cnd);
-        mtx_unlock(&worker->mtx);
+        SDL_SignalCondition(worker->cnd);
+        SDL_UnlockMutex(worker->mtx);
     }
     return 0;
 }
@@ -107,11 +106,11 @@ static void dispatch(
 {
     assert(worker);
     assert(job);
-    mtx_lock(&worker->mtx);
+    SDL_LockMutex(worker->mtx);
     assert(!worker->job);
     worker->job = job;
-    cnd_signal(&worker->cnd);
-    mtx_unlock(&worker->mtx);
+    SDL_SignalCondition(worker->cnd);
+    SDL_UnlockMutex(worker->mtx);
 }
 
 bool world_init(
@@ -123,19 +122,22 @@ bool world_init(
     for (int i = 0; i < WORLD_WORKERS; i++)
     {
         worker_t* worker = &workers[i];
-        if (mtx_init(&worker->mtx, mtx_plain) != thrd_success)
+        worker->mtx = SDL_CreateMutex();
+        if (!worker->mtx)
         {
-            SDL_Log("Failed to create mutex");
+            SDL_Log("Failed to create mutex: %s", SDL_GetError());
             return false;
         }
-        if (cnd_init(&worker->cnd) != thrd_success)
+        worker->cnd = SDL_CreateCondition();
+        if (!worker->cnd)
         {
-            SDL_Log("Failed to create condition variable");
+            SDL_Log("Failed to create condition variable: %s", SDL_GetError());
             return false;
         }
-        if (thrd_create(&worker->thrd, loop, worker) != thrd_success)
+        worker->thrd = SDL_CreateThread(loop, "worker", worker);
+        if (!worker->thrd)
         {
-            SDL_Log("Failed to create thread");
+            SDL_Log("Failed to create thread: %s", SDL_GetError());
             return false;
         }
     }
@@ -164,9 +166,12 @@ void world_free()
     for (int i = 0; i < WORLD_WORKERS; i++)
     {
         worker_t* worker = &workers[i];
-        thrd_join(worker->thrd, NULL);
-        mtx_destroy(&worker->mtx);
-        cnd_destroy(&worker->cnd);
+        SDL_WaitThread(worker->thrd, NULL);
+        SDL_DestroyMutex(worker->mtx);
+        SDL_DestroyCondition(worker->cnd);
+        worker->thrd = NULL;
+        worker->mtx = NULL;
+        worker->cnd = NULL;
         for (chunk_type_t type = 0; type < CHUNK_TYPE_COUNT; type++)
         {
             if (worker->tbos[type])
@@ -277,12 +282,12 @@ void world_update(
     for (int i = 0; i < n; i++)
     {
         worker_t* worker = &workers[i];
-        mtx_lock(&worker->mtx);
+        SDL_LockMutex(worker->mtx);
         while (worker->job)
         {
-            cnd_wait(&worker->cnd, &worker->mtx);
+            SDL_WaitCondition(worker->cnd, worker->mtx);
         }
-        mtx_unlock(&worker->mtx);
+        SDL_UnlockMutex(worker->mtx);
     }
     for (int i = 0; i < n; i++)
     {
