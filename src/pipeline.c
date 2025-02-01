@@ -150,7 +150,7 @@ static SDL_GPUGraphicsPipeline* load_opaque(
                 .format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
             },
             {
-                .format = SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT,
+                .format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
             },
             {
                 .format = SDL_GPU_TEXTUREFORMAT_R32_UINT,
@@ -434,7 +434,7 @@ static SDL_GPUGraphicsPipeline* load_random(
             .num_color_targets = 1,
             .color_target_descriptions = (SDL_GPUColorTargetDescription[])
             {{
-                .format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT,
+                .format = SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT,
             }},
         },
     };

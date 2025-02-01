@@ -38,4 +38,4 @@ bool block_solid(
 bool block_sprite(
     const block_t block);
 
-extern const int blocks[][DIRECTION_3][2];
+extern const int blocks[][DIRECTION_3];

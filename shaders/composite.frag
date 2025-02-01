@@ -4,7 +4,7 @@
 
 layout(location = 0) in vec2 i_uv;
 layout(location = 0) out vec4 o_color;
-layout(set = 2, binding = 0) uniform sampler2D s_atlas;
+layout(set = 2, binding = 0) uniform sampler2DArray s_atlas;
 layout(set = 2, binding = 1) uniform sampler2D s_position;
 layout(set = 2, binding = 2) uniform sampler2D s_uv;
 layout(set = 2, binding = 3) uniform usampler2D s_voxel;
@@ -26,7 +26,7 @@ layout(set = 3, binding = 2) uniform t_shadow_matrix
 void main()
 {
     const vec3 position = texture(s_position, i_uv).xyz;
-    const vec2 uv = texture(s_uv, i_uv).xy;
+    const vec3 uv = texture(s_uv, i_uv).xyz;
     const uint voxel = texture(s_voxel, i_uv).x;
     if (length(uv) == 0)
     {

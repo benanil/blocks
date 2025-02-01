@@ -17,36 +17,17 @@ void noise_generate(
         const int t = z * CHUNK_Z + b;
         bool low = false;
         bool grass = false;
-        float height = stb_perlin_fbm_noise3(
-            s * 0.005f,
-            0.0f,
-            t * 0.005f,
-            2.0f,
-            0.5f,
-            6);
+        float height = stb_perlin_fbm_noise3(s * 0.005f, 0.0f, t * 0.005f, 2.0f, 0.5f, 6);
         height *= 50.0f;
-        height = powf(fmaxf(height, 0.0f), 1.3f);
+        height = powf(max(height, 0.0f), 1.3f);
         height += 30;
         height = clamp(height, 0, CHUNK_Y - 1);
         if (height < 40)
         {
-            const float f = stb_perlin_fbm_noise3(
-                -s * 0.01f,
-                0.0f,
-                t * 0.01f,
-                2.0f,
-                0.5f,
-                6);
-            height += f * 12.0f;
+            height += stb_perlin_fbm_noise3(-s * 0.01f, 0.0f, t * 0.01f, 2.0f, 0.5f, 6) * 12.0f;
             low = true;
         }
-        float biome = stb_perlin_fbm_noise3(
-            s * 0.2f,
-            0.0f,
-            t * 0.2f,
-            2.0f,
-            0.5f,
-            6);
+        float biome = stb_perlin_fbm_noise3(s * 0.2f, 0.0f, t * 0.2f, 2.0f, 0.5f, 6);
         block_t top;
         block_t bottom;
         if (height + biome < 31)
@@ -87,16 +68,8 @@ void noise_generate(
         }
         if (low && grass)
         {
-            const float plant = stb_perlin_fbm_noise3(
-                s * 0.2f,
-                0.0f,
-                t * 0.2f,
-                2.0f,
-                0.5f,
-                3) * 0.5f + 0.5f;
-            if (plant > 0.8f &&
-                a > 2 && a < CHUNK_X - 2 &&
-                b > 2 && b < CHUNK_Z - 2)
+            const float plant = stb_perlin_fbm_noise3(s * 0.2f, 0.0f, t * 0.2f, 2.0f, 0.5f, 3) * 0.5f + 0.5f;
+            if (plant > 0.8f && a > 2 && a < CHUNK_X - 2 && b > 2 && b < CHUNK_Z - 2)
             {
                 const int log = 3 + plant * 2.0f;
                 for (int dy = 0; dy < log; dy++)
@@ -120,13 +93,7 @@ void noise_generate(
             else if (plant > 0.52f)
             {
                 const int value = max(((int) (plant * 1000.0f)) % 4, 0);
-                const block_t flowers[] =
-                {
-                    BLOCK_BLUEBELL,
-                    BLOCK_DANDELION,
-                    BLOCK_LAVENDER,
-                    BLOCK_ROSE,
-                };
+                const block_t flowers[] = {BLOCK_BLUEBELL, BLOCK_DANDELION, BLOCK_LAVENDER, BLOCK_ROSE};
                 chunk_set_block(chunk, a, y + 1, b, flowers[value]);
             }
         }
@@ -134,13 +101,7 @@ void noise_generate(
         {
             continue;
         }
-        const float cloud = stb_perlin_turbulence_noise3(
-            s * 0.015f,
-            0.0f,
-            t * 0.015f,
-            2.0f,
-            0.5f,
-            6);
+        const float cloud = stb_perlin_turbulence_noise3(s * 0.015f, 0.0f, t * 0.015f, 2.0f, 0.5f, 6);
         int scale = -1;
         if (cloud > 0.9f)
         {

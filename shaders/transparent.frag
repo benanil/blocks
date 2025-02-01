@@ -3,7 +3,7 @@
 #include "helpers.glsl"
 
 layout(location = 0) in vec3 i_position;
-layout(location = 1) in vec2 i_uv;
+layout(location = 1) in vec3 i_uv;
 layout(location = 2) in flat vec3 i_normal;
 layout(location = 3) in vec4 i_shadow_position;
 layout(location = 4) in flat uint i_shadowed;
@@ -11,7 +11,7 @@ layout(location = 5) in flat uint i_occluded;
 layout(location = 6) in float i_fog;
 layout(location = 7) in vec2 i_fragment;
 layout(location = 0) out vec4 o_color;
-layout(set = 2, binding = 0) uniform sampler2D s_atlas;
+layout(set = 2, binding = 0) uniform sampler2DArray s_atlas;
 layout(set = 2, binding = 1) uniform sampler2D s_shadowmap;
 layout(set = 2, binding = 2) uniform sampler2D s_position;
 layout(set = 3, binding = 0) uniform t_shadow_vector

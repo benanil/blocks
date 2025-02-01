@@ -5,7 +5,7 @@
 layout(location = 0) in uint i_voxel;
 layout(location = 0) out flat uint o_voxel;
 layout(location = 1) out vec4 o_position;
-layout(location = 2) out vec2 o_uv;
+layout(location = 2) out vec3 o_uv;
 layout(set = 1, binding = 0) uniform t_position
 {
     ivec3 u_position;

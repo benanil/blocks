@@ -61,16 +61,28 @@ static bool create_atlas()
     }
     SDL_GPUTextureCreateInfo tci = {0};
     tci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    tci.type = SDL_GPU_TEXTURETYPE_2D;
-    tci.layer_count_or_depth = 1;
+    tci.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
+    tci.layer_count_or_depth = ATLAS_WIDTH / BLOCK_WIDTH;
     tci.num_levels = ATLAS_LEVELS;
     tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
-    tci.width = w;
-    tci.height = h;
+    tci.width = BLOCK_WIDTH;
+    tci.height = BLOCK_WIDTH;
     atlas_texture = SDL_CreateGPUTexture(device, &tci);
     if (!atlas_texture)
     {
         SDL_Log("Failed to create atlas texture: %s", SDL_GetError());
+        return false;
+    }
+    tci.type = SDL_GPU_TEXTURETYPE_2D;
+    tci.layer_count_or_depth = 1;
+    tci.num_levels = 1;
+    tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    tci.width = w;
+    tci.height = h;
+    SDL_GPUTexture* texture = SDL_CreateGPUTexture(device, &tci);
+    if (!texture)
+    {
+        SDL_Log("Failed to create texture: %s", SDL_GetError());
         return false;
     }
     SDL_GPUTransferBufferCreateInfo tbci = {0};
@@ -103,16 +115,33 @@ static bool create_atlas()
         return false;
     }
     SDL_GPUTextureTransferInfo tti = {0};
-    tti.transfer_buffer = buffer;
     SDL_GPUTextureRegion region = {0};
-    region.texture = atlas_texture;
+    tti.transfer_buffer = buffer;
+    region.texture = texture;
     region.w = w;
     region.h = h;
     region.d = 1;
     SDL_UploadToGPUTexture(pass, &tti, &region, 0);
     SDL_EndGPUCopyPass(pass);
+    for (int i = 0; i < ATLAS_WIDTH / BLOCK_WIDTH; i++)
+    {
+        SDL_GPUBlitInfo info = {0};
+        info.source.texture = texture;
+        info.source.x = i * BLOCK_WIDTH;
+        info.source.y = 0;
+        info.source.w = BLOCK_WIDTH;
+        info.source.h = BLOCK_WIDTH;
+        info.destination.texture = atlas_texture;
+        info.destination.x = 0;
+        info.destination.y = 0;
+        info.destination.w = BLOCK_WIDTH;
+        info.destination.h = BLOCK_WIDTH;
+        info.destination.layer_or_depth_plane = i;
+        SDL_BlitGPUTexture(commands, &info);
+    }
     SDL_GenerateMipmapsForGPUTexture(commands, atlas_texture);
     SDL_SubmitGPUCommandBuffer(commands);
+    SDL_ReleaseGPUTexture(device, texture);
     SDL_ReleaseGPUTransferBuffer(device, buffer);
     return true;
 }
@@ -178,7 +207,7 @@ static bool create_textures()
         return false;
     }
     tci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    tci.format = SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT;
+    tci.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     uv_texture = SDL_CreateGPUTexture(device, &tci);
     if (!uv_texture)
     {
@@ -202,7 +231,7 @@ static bool create_textures()
         return false;
     }
     tci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    tci.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
+    tci.format = SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT;
     random_texture = SDL_CreateGPUTexture(device, &tci);
     if (!random_texture)
     {
@@ -228,23 +257,22 @@ SDL_Surface* create_icon(
     {
         return NULL;
     }
-    SDL_Surface* icon = SDL_CreateSurface(ATLAS_FACE_WIDTH,
-        ATLAS_FACE_HEIGHT, SDL_PIXELFORMAT_RGBA32);
+    SDL_Surface* icon = SDL_CreateSurface(BLOCK_WIDTH, BLOCK_WIDTH, SDL_PIXELFORMAT_RGBA32);
     if (!icon)
     {
         SDL_Log("Failed to create icon surface: %s", SDL_GetError());
         return NULL;
     }
     SDL_Rect src;
-    src.x = blocks[block][0][0] * ATLAS_FACE_WIDTH;
-    src.y = blocks[block][0][1] * ATLAS_FACE_HEIGHT;
-    src.w = ATLAS_FACE_WIDTH;
-    src.h = ATLAS_FACE_HEIGHT;
+    src.x = blocks[block][0] * BLOCK_WIDTH;
+    src.y = 0;
+    src.w = BLOCK_WIDTH;
+    src.h = BLOCK_WIDTH;
     SDL_Rect dst;
     dst.x = 0;
     dst.y = 0;
-    dst.w = ATLAS_FACE_WIDTH;
-    dst.h = ATLAS_FACE_HEIGHT;
+    dst.w = BLOCK_WIDTH;
+    dst.h = BLOCK_WIDTH;
     if (!SDL_BlitSurface(atlas_surface, &src, icon, &dst))
     {
         SDL_Log("Failed to blit icon surface: %s", SDL_GetError());
@@ -622,7 +650,7 @@ static void draw_ui()
     SDL_BindGPUFragmentSamplers(pass, 0, &tsb, 1);
     SDL_PushGPUFragmentUniformData(commands, 0, viewport, 8);
     SDL_PushGPUFragmentUniformData(commands, 1, corner, 8);
-    SDL_PushGPUFragmentUniformData(commands, 2, blocks[selected][0], 8);
+    SDL_PushGPUFragmentUniformData(commands, 2, blocks[selected], 4);
     SDL_DrawGPUPrimitives(pass, 4, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
 }

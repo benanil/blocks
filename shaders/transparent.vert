@@ -4,7 +4,7 @@
 
 layout(location = 0) in uint i_voxel;
 layout(location = 0) out vec3 o_position;
-layout(location = 1) out vec2 o_uv;
+layout(location = 1) out vec3 o_uv;
 layout(location = 2) out flat vec3 o_normal;
 layout(location = 3) out vec4 o_shadow_position;
 layout(location = 4) out flat uint o_shadowed;

@@ -16,25 +16,19 @@ const vec3 normals[6] = vec3[6]
 vec3 get_position(
     const uint voxel)
 {
-    return vec3(voxel >> VOXEL_X_OFFSET & VOXEL_X_MASK,
+    return vec3(
+        voxel >> VOXEL_X_OFFSET & VOXEL_X_MASK,
         voxel >> VOXEL_Y_OFFSET & VOXEL_Y_MASK,
         voxel >> VOXEL_Z_OFFSET & VOXEL_Z_MASK);
 }
 
-vec2 get_atlas(
-    const vec2 position)
-{
-    return vec2(
-        position.x / ATLAS_WIDTH * ATLAS_FACE_WIDTH,
-        position.y / ATLAS_HEIGHT * ATLAS_FACE_HEIGHT);
-}
-
-vec2 get_uv(
+vec3 get_uv(
     const uint voxel)
 {
-    return get_atlas(vec2(
+    return vec3(
         voxel >> VOXEL_U_OFFSET & VOXEL_U_MASK,
-        voxel >> VOXEL_V_OFFSET & VOXEL_V_MASK));
+        voxel >> VOXEL_V_OFFSET & VOXEL_V_MASK,
+        voxel >> VOXEL_FACE_OFFSET & VOXEL_FACE_MASK);
 }
 
 uint get_direction(
@@ -80,10 +74,10 @@ float get_fog(
 }
 
 vec4 get_color(
-    const sampler2D atlas,
+    const sampler2DArray atlas,
     const sampler2D shadowmap,
     const vec3 position,
-    const vec2 uv,
+    const vec3 uv,
     const vec3 normal,
     const vec3 player_position,
     const vec3 shadow_position,
@@ -98,37 +92,30 @@ vec4 get_color(
     shadow_uv.x = shadow_position.x * 0.5 + 0.5;
     shadow_uv.y = 1.0 - (shadow_position.y * 0.5 + 0.5);
     shadow_uv.z = shadow_position.z;
-    float a;
-    float b;
-    float c;
+    float ao = ssao * 0.4;
+    float ambient = 0.2;
+    float directional = 0.0;
     const float angle = dot(normal, -shadow_vector);
     const float depth = shadow_uv.z - 0.001;
-    if (shadowed && ((angle < 0.0) || (
-        all(greaterThanEqual(shadow_uv, vec3(0.0))) &&
-        all(lessThanEqual(shadow_uv, vec3(1.0))) &&
-        (depth > texture(shadowmap, shadow_uv.xy).x))))
+    if (!shadowed || (angle > 0.0 && (
+        all(lessThanEqual(shadow_uv, vec3(0.0))) ||
+        all(greaterThanEqual(shadow_uv, vec3(1.0))) ||
+        (depth < texture(shadowmap, shadow_uv.xy).x))))
     {
-        a = ssao * 0.2;
-        b = 0.3;
-        c = 0.0;
-    }
-    else
-    {
-        a = ssao * 0.4;
-        b = 0.3;
-        c = max(angle, 0.0) * 1.2;
+        directional = max(angle, 0.0) * 1.2;
     }
     if (!occluded)
     {
-        a = 0.7;
+        ao = 0.7;
     }
     vec4 color = texture(atlas, uv);
     color.a = clamp(color.a + alpha, 0.0, 1.0);
-    const vec4 composite = vec4(color.xyz * (a + b + c), color.a);
+    const float light = ao + ambient + directional;
     const float dy = position.y - player_position.y;
     const float dx = distance(position.xz, player_position.xz);
     const float pitch = atan(dy, dx);
     const vec4 sky = vec4(get_sky(pitch), 1.0);
+    const vec4 composite = vec4(color.xyz * light, color.a);
     return mix(composite, sky, fog);
 }
 

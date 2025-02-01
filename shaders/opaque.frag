@@ -2,11 +2,11 @@
 
 layout(location = 0) in flat uint i_voxel;
 layout(location = 1) in vec4 i_position;
-layout(location = 2) in vec2 i_uv;
+layout(location = 2) in vec3 i_uv;
 layout(location = 0) out vec4 o_position;
-layout(location = 1) out vec2 o_uv;
+layout(location = 1) out vec3 o_uv;
 layout(location = 2) out uint o_voxel;
-layout(set = 2, binding = 0) uniform sampler2D s_atlas;
+layout(set = 2, binding = 0) uniform sampler2DArray s_atlas;
 
 void main()
 {

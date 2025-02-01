@@ -21,15 +21,18 @@ static uint32_t pack(
     static_assert(VOXEL_Z_OFFSET + VOXEL_Z_BITS <= 32, "");
     static_assert(VOXEL_U_OFFSET + VOXEL_U_BITS <= 32, "");
     static_assert(VOXEL_V_OFFSET + VOXEL_V_BITS <= 32, "");
+    static_assert(VOXEL_FACE_OFFSET + VOXEL_FACE_BITS <= 32, "");
     static_assert(VOXEL_DIRECTION_OFFSET + VOXEL_DIRECTION_BITS <= 32, "");
     static_assert(VOXEL_SHADOW_OFFSET + VOXEL_SHADOW_BITS <= 32, "");
     static_assert(VOXEL_SHADOWED_OFFSET + VOXEL_SHADOWED_BITS <= 32, "");
     static_assert(VOXEL_OCCLUDED_OFFSET + VOXEL_OCCLUDED_BITS <= 32, "");
+    const int face = blocks[block][direction];
     assert(x <= VOXEL_X_MASK);
     assert(y <= VOXEL_Y_MASK);
     assert(z <= VOXEL_Z_MASK);
     assert(u <= VOXEL_U_MASK);
     assert(v <= VOXEL_V_MASK);
+    assert(face <= VOXEL_FACE_MASK);
     assert(direction <= VOXEL_DIRECTION_MASK);
     uint32_t voxel = 0;
     voxel |= x << VOXEL_X_OFFSET;
@@ -37,6 +40,7 @@ static uint32_t pack(
     voxel |= z << VOXEL_Z_OFFSET;
     voxel |= u << VOXEL_U_OFFSET;
     voxel |= v << VOXEL_V_OFFSET;
+    voxel |= face << VOXEL_FACE_OFFSET;
     voxel |= direction << VOXEL_DIRECTION_OFFSET;
     voxel |= block_shadow(block) << VOXEL_SHADOW_OFFSET;
     voxel |= block_shadowed(block) << VOXEL_SHADOWED_OFFSET;
@@ -77,8 +81,8 @@ static uint32_t pack_non_sprite(
     const int a = positions[direction][i][0] + x;
     const int b = positions[direction][i][1] + y;
     const int c = positions[direction][i][2] + z;
-    const int d = uvs[direction][i][0] + blocks[block][direction][0];
-    const int e = uvs[direction][i][1] + blocks[block][direction][1];
+    const int d = uvs[direction][i][0];
+    const int e = uvs[direction][i][1];
     return pack(block, a, b, c, d, e, direction);
 }
 
@@ -111,8 +115,8 @@ static uint32_t pack_sprite(
     const int a = positions[direction][i][0] + x;
     const int b = positions[direction][i][1] + y;
     const int c = positions[direction][i][2] + z;
-    const int d = uvs[direction][i][0] + blocks[block][DIRECTION_N][0];
-    const int e = uvs[direction][i][1] + blocks[block][DIRECTION_N][1];
+    const int d = uvs[direction][i][0];
+    const int e = uvs[direction][i][1];
     return pack(block, a, b, c, d, e, DIRECTION_U);
 }
 

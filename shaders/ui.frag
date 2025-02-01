@@ -3,7 +3,7 @@
 #include "helpers.glsl"
 
 layout(location = 0) out vec4 o_color;
-layout(set = 2, binding = 0) uniform sampler2D s_atlas;
+layout(set = 2, binding = 0) uniform sampler2DArray s_atlas;
 layout(set = 3, binding = 0) uniform t_viewport
 {
     ivec2 u_viewport;
@@ -12,9 +12,9 @@ layout(set = 3, binding = 1) uniform t_corner
 {
     ivec2 u_corner;
 };
-layout(set = 3, binding = 2) uniform t_block
+layout(set = 3, binding = 2) uniform t_face
 {
-    ivec2 u_block;
+    uint u_face;
 };
 
 void main()
@@ -31,11 +31,8 @@ void main()
     {
         const float x = (position.x - block_start.x) / block_width;
         const float y = (position.y - block_start.y) / block_width;
-        const vec2 uv = get_atlas(u_block);
-        const float c = uv.x + x / ATLAS_X_FACES;
-        const float d = uv.y + (1.0 - y) / ATLAS_Y_FACES;
-        o_color = texture(s_atlas, vec2(c, d));
-        o_color.xyz *= 1.25;
+        o_color = texture(s_atlas, vec3(x, 1.0 - y, u_face));
+        o_color.xyz *= 1.5;
         return;
     }
     const float cross_width = 8 * scale;
