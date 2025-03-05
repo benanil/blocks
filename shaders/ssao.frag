@@ -20,14 +20,15 @@ bool test(
     {
         return false;
     }
+    const float bias = 0.01;
     switch (direction)
     {
-    case 4: return position.y < neighbor_position.y;
-    case 5: return position.y > neighbor_position.y;
-    case 2: return position.x < neighbor_position.x;
-    case 3: return position.x > neighbor_position.x;
-    case 0: return position.z < neighbor_position.z;
-    case 1: return position.z > neighbor_position.z;
+    case 4: return position.y < neighbor_position.y - bias;
+    case 5: return position.y > neighbor_position.y + bias;
+    case 2: return position.x < neighbor_position.x - bias;
+    case 3: return position.x > neighbor_position.x + bias;
+    case 0: return position.z < neighbor_position.z - bias;
+    case 1: return position.z > neighbor_position.z + bias;
     }
     return false;
 }

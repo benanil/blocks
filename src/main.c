@@ -920,6 +920,13 @@ int main(
     SDL_Surface* icon = create_icon(WINDOW_ICON);
     SDL_SetWindowIcon(window, icon);
     SDL_DestroySurface(icon);
+    SDL_GPUSwapchainComposition composition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
+    SDL_GPUPresentMode mode = SDL_GPU_PRESENTMODE_VSYNC;
+    if (SDL_WindowSupportsGPUPresentMode(device, window, SDL_GPU_PRESENTMODE_MAILBOX))
+    {
+        mode = SDL_GPU_PRESENTMODE_MAILBOX;
+    }
+    SDL_SetGPUSwapchainParameters(device, window, composition, mode);
     float x;
     float y;
     float z;
