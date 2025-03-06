@@ -848,26 +848,29 @@ static void move(
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;
-    float speed = PLAYER_SPEED;
-    const bool* state = SDL_GetKeyboardState(NULL);
-    x += state[INPUT_RIGHT];
-    x -= state[INPUT_LEFT];
-    y += state[INPUT_UP];
-    y -= state[INPUT_DOWN];
-    z += state[INPUT_FORWARD];
-    z -= state[INPUT_BACKWARD];
-    if (state[INPUT_FAST])
+    if (SDL_GetWindowRelativeMouseMode(window))
     {
-        speed *= 5.0f;
+        float speed = PLAYER_SPEED;
+        const bool* state = SDL_GetKeyboardState(NULL);
+        x += state[INPUT_RIGHT];
+        x -= state[INPUT_LEFT];
+        y += state[INPUT_UP];
+        y -= state[INPUT_DOWN];
+        z += state[INPUT_FORWARD];
+        z -= state[INPUT_BACKWARD];
+        if (state[INPUT_FAST])
+        {
+            speed *= 5.0f;
+        }
+        else if (state[INPUT_SLOW])
+        {
+            speed /= 5.0f;
+        }
+        x *= speed * dt;
+        y *= speed * dt;
+        z *= speed * dt;
+        camera_move(&player_camera, x, y, z);
     }
-    else if (state[INPUT_SLOW])
-    {
-        speed /= 5.0f;
-    }
-    x *= speed * dt;
-    y *= speed * dt;
-    z *= speed * dt;
-    camera_move(&player_camera, x, y, z);
     camera_get_position(&player_camera, &x, &y, &z);
     int a = x;
     int c = z;
