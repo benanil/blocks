@@ -8,11 +8,7 @@ layout(set = 3, binding = 0) uniform t_viewport
 {
     ivec2 u_viewport;
 };
-layout(set = 3, binding = 1) uniform t_corner
-{
-    ivec2 u_corner;
-};
-layout(set = 3, binding = 2) uniform t_face
+layout(set = 3, binding = 1) uniform t_face
 {
     uint u_face;
 };
@@ -24,7 +20,7 @@ void main()
     const vec2 ratio = vec2(u_viewport) / vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
     const float scale = min(ratio.x, ratio.y);
     const float block_width = 50 * scale;
-    const vec2 block_start = u_corner + 10 * scale;
+    const vec2 block_start = vec2(10 * scale);
     const vec2 block_end = block_start + block_width;
     if (position.x > block_start.x && position.x < block_end.x &&
         position.y > block_start.y && position.y < block_end.y)

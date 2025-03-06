@@ -18,8 +18,8 @@ static SDL_GPUDevice* device;
 static SDL_GPUCommandBuffer* commands;
 static uint32_t width;
 static uint32_t height;
-static uint32_t bx;
-static uint32_t by;
+static uint32_t render_width;
+static uint32_t render_height;
 static SDL_GPUBuffer* cube_vbo;
 static SDL_GPUTexture* color_texture;
 static SDL_GPUTexture* depth_texture;
@@ -188,10 +188,54 @@ static bool create_textures()
         SDL_Log("Failed to create shadow texture: %s", SDL_GetError());
         return false;
     }
+    return true;
+}
+
+static bool resize_textures()
+{
+    if (depth_texture)
+    {
+        SDL_ReleaseGPUTexture(device, depth_texture);
+        depth_texture = NULL;
+    }
+    if (position_texture)
+    {
+        SDL_ReleaseGPUTexture(device, position_texture);
+        position_texture = NULL;
+    }
+    if (uv_texture)
+    {
+        SDL_ReleaseGPUTexture(device, uv_texture);
+        uv_texture = NULL;
+    }
+    if (voxel_texture)
+    {
+        SDL_ReleaseGPUTexture(device, voxel_texture);
+        voxel_texture = NULL;
+    }
+    if (ssao_texture)
+    {
+        SDL_ReleaseGPUTexture(device, ssao_texture);
+        ssao_texture = NULL;
+    }
+    if (random_texture)
+    {
+        SDL_ReleaseGPUTexture(device, random_texture);
+        random_texture = NULL;
+    }
+    if (composite_texture)
+    {
+        SDL_ReleaseGPUTexture(device, composite_texture);
+        composite_texture = NULL;
+    }
+    SDL_GPUTextureCreateInfo tci = {0};
+    tci.type = SDL_GPU_TEXTURETYPE_2D;
+    tci.layer_count_or_depth = 1;
+    tci.num_levels = 1;
     tci.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
     tci.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-    tci.width = WINDOW_WIDTH;
-    tci.height = WINDOW_HEIGHT;
+    tci.width = render_width;
+    tci.height = render_height;
     depth_texture = SDL_CreateGPUTexture(device, &tci);
     if (!depth_texture)
     {
@@ -598,31 +642,16 @@ static void draw_raycast()
 
 static void blit()
 {
-    const float src = (float) WINDOW_WIDTH / (float) WINDOW_HEIGHT;
-    const float dst = (float) width / (float) height;
-    float scale;
-    if (dst > src)
-    {
-        scale = (float) height / (float) WINDOW_HEIGHT;
-    }
-    else
-    {
-        scale = (float) width / (float) WINDOW_WIDTH;
-    }
-    const uint32_t w = WINDOW_WIDTH * scale;
-    const uint32_t h = WINDOW_HEIGHT * scale;
-    bx = ((float) width - (float) w) / 2.0f;
-    by = ((float) height - (float) h) / 2.0f;
     SDL_GPUBlitInfo blit = {0};
     blit.source.x = 0;
     blit.source.y = 0;
-    blit.source.w = WINDOW_WIDTH;
-    blit.source.h = WINDOW_HEIGHT;
+    blit.source.w = render_width;
+    blit.source.h = render_height;
     blit.source.texture = composite_texture;
-    blit.destination.x = bx;
-    blit.destination.y = by;
-    blit.destination.w = w;
-    blit.destination.h = h;
+    blit.destination.x = 0;
+    blit.destination.y = 0;
+    blit.destination.w = width;
+    blit.destination.h = height;
     blit.destination.texture = color_texture;
     blit.load_op = SDL_GPU_LOADOP_CLEAR;
     blit.filter = SDL_GPU_FILTER_NEAREST;
@@ -642,15 +671,13 @@ static void draw_ui()
         return;
     }
     int32_t viewport[2] = { width, height };
-    int32_t corner[2] = { bx, by };
     SDL_GPUTextureSamplerBinding tsb = {0};
     tsb.sampler = nearest_sampler;
     tsb.texture = atlas_texture;
     pipeline_bind(pass, PIPELINE_UI);
     SDL_BindGPUFragmentSamplers(pass, 0, &tsb, 1);
     SDL_PushGPUFragmentUniformData(commands, 0, viewport, 8);
-    SDL_PushGPUFragmentUniformData(commands, 1, corner, 8);
-    SDL_PushGPUFragmentUniformData(commands, 2, blocks[selected], 4);
+    SDL_PushGPUFragmentUniformData(commands, 1, blocks[selected], 4);
     SDL_DrawGPUPrimitives(pass, 4, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
 }
@@ -664,16 +691,34 @@ static void draw()
         SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
         return;
     }
-    if (!SDL_AcquireGPUSwapchainTexture(commands, window, &color_texture, &width, &height))
+    uint32_t w;
+    uint32_t h;
+    if (!SDL_AcquireGPUSwapchainTexture(commands, window, &color_texture, &w, &h))
     {
         SDL_Log("Failed to aqcuire swapchain image: %s", SDL_GetError());
         SDL_CancelGPUCommandBuffer(commands);
         return;
     }
-    if (!color_texture || width == 0 || height == 0)
+    if (!color_texture || !w || !h)
     {
         SDL_SubmitGPUCommandBuffer(commands);
         return;
+    }
+    if (width != w || height != h)
+    {
+        const float ratio = (float) w / (float) h;
+        render_width = RENDERER_SIZE;
+        render_height = (float) RENDERER_SIZE / ratio;
+        if (!resize_textures(render_width, render_height))
+        {
+            SDL_Log("Failed to resize textures");
+            SDL_SubmitGPUCommandBuffer(commands);
+            return;
+        }
+        camera_set_viewport(&player_camera, render_width, render_height);
+        width = w;
+        height = h;
+        draw_random();
     }
     camera_update(&player_camera);
     camera_update(&shadow_camera);
@@ -933,7 +978,6 @@ int main(
     float pitch;
     float yaw;
     camera_init(&player_camera, CAMERA_TYPE_PERSPECTIVE);
-    camera_set_viewport(&player_camera, WINDOW_WIDTH, WINDOW_HEIGHT);
     if (database_get_player(DATABASE_PLAYER, &x, &y, &z, &pitch, &yaw))
     {
         camera_set_position(&player_camera, x, y, z);
@@ -949,7 +993,6 @@ int main(
     camera_init(&shadow_camera, CAMERA_TYPE_ORTHO);
     camera_set_rotation(&shadow_camera, SHADOW_PITCH, SHADOW_YAW);
     move(0.0f);
-    draw_random();
     time1 = SDL_GetPerformanceCounter();
     time2 = 0;
     while (true)

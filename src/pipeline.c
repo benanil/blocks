@@ -388,7 +388,7 @@ static SDL_GPUGraphicsPipeline* load_ui(
     SDL_GPUGraphicsPipelineCreateInfo info =
     {
         .vertex_shader = load("fullscreen.vert", 0, 0),
-        .fragment_shader = load("ui.frag", 3, 1),
+        .fragment_shader = load("ui.frag", 2, 1),
         .target_info =
         {
             .num_color_targets = 1,
