@@ -7,10 +7,12 @@ Tiny Minecraft clone in C and GLSL using the new SDL3 GPU API
 ### Features
 
 - Procedural world generation
+- Parallel chunk loading
 - Blocks and plants
 - Transparent blocks
 - Directional shadows
-- SSAO approximation
+- SSAO
+- Water depth shading
 - Persistent worlds
 
 ### Building
