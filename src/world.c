@@ -420,7 +420,7 @@ block_t world_get_block(
     const chunk_t* chunk = terrain_get2(&terrain, a, c);
     if (!chunk->load)
     {
-        return chunk_get_block(chunk, x, y, z);
+        return chunk->blocks[x][y][z];
     }
     else
     {

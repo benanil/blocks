@@ -34,17 +34,6 @@ bool chunk_in(
         z < CHUNK_Z;
 }
 
-block_t chunk_get_block(
-    const chunk_t* chunk,
-    const int x,
-    const int y,
-    const int z)
-{
-    assert(chunk);
-    assert(chunk_in(x, y, z));
-    return chunk->blocks[x][y][z];
-}
-
 void chunk_set_block(
     chunk_t* chunk,
     const int x,

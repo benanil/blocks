@@ -34,11 +34,6 @@ bool chunk_in(
     const int x,
     const int y,
     const int z);
-block_t chunk_get_block(
-    const chunk_t* chunk,
-    const int x,
-    const int y,
-    const int z);
 void chunk_set_block(
     chunk_t* chunk,
     const int x,
