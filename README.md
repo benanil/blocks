@@ -12,7 +12,7 @@ Tiny Minecraft clone in C and GLSL using the new SDL3 GPU API
 - Transparency (limited)
 - Deferred rendering
 - Directional shadows
-- SSAO (ish, see [here](#ssao))
+- SSAO (ish)
 - Water depth shading
 - Persistent worlds
 
