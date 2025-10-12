@@ -1,6 +1,5 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <stb_image.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -34,7 +33,6 @@ static SDL_GPUTexture* composite_texture;
 static SDL_GPUSampler* nearest_sampler;
 static SDL_GPUSampler* linear_sampler;
 static SDL_Surface* atlas_surface;
-static void* atlas_data;
 static camera_t player_camera;
 static camera_t shadow_camera;
 static uint64_t time1;
@@ -44,16 +42,7 @@ static block_t selected = BLOCK_GRASS;
 
 static bool create_atlas()
 {
-    int w;
-    int h;
-    int channels;
-    atlas_data = stbi_load("atlas.png", &w, &h, &channels, 4);
-    if (!atlas_data || channels != 4)
-    {
-        SDL_Log("Failed to create atlas image: %s", stbi_failure_reason());
-        return false;
-    }
-    atlas_surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, atlas_data, w * 4);
+    atlas_surface = SDL_LoadPNG("atlas.png");
     if (!atlas_surface)
     {
         SDL_Log("Failed to create atlas surface: %s", SDL_GetError());
@@ -77,8 +66,8 @@ static bool create_atlas()
     tci.layer_count_or_depth = 1;
     tci.num_levels = 1;
     tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
-    tci.width = w;
-    tci.height = h;
+    tci.width = atlas_surface->w;
+    tci.height = atlas_surface->h;
     SDL_GPUTexture* texture = SDL_CreateGPUTexture(device, &tci);
     if (!texture)
     {
@@ -86,7 +75,7 @@ static bool create_atlas()
         return false;
     }
     SDL_GPUTransferBufferCreateInfo tbci = {0};
-    tbci.size = w * h * 4;
+    tbci.size = atlas_surface->w * atlas_surface->h * 4;
     tbci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     SDL_GPUTransferBuffer* buffer = SDL_CreateGPUTransferBuffer(device, &tbci);
     if (!buffer)
@@ -100,7 +89,7 @@ static bool create_atlas()
         SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
         return false;
     }
-    memcpy(data, atlas_surface->pixels, w * h * 4);
+    memcpy(data, atlas_surface->pixels, atlas_surface->w * atlas_surface->h * 4);
     SDL_UnmapGPUTransferBuffer(device, buffer);
     SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device);
     if (!commands)
@@ -118,8 +107,8 @@ static bool create_atlas()
     SDL_GPUTextureRegion region = {0};
     tti.transfer_buffer = buffer;
     region.texture = texture;
-    region.w = w;
-    region.h = h;
+    region.w = atlas_surface->w;
+    region.h = atlas_surface->h;
     region.d = 1;
     SDL_UploadToGPUTexture(pass, &tti, &region, 0);
     SDL_EndGPUCopyPass(pass);
@@ -1035,6 +1024,5 @@ int main(
     SDL_DestroyGPUDevice(device);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    stbi_image_free(atlas_data);
     return EXIT_SUCCESS;
 }
