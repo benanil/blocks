@@ -181,7 +181,7 @@ int* terrain_move(
     terrain_t* terrain,
     const int x,
     const int z,
-    int* size
+    int* size,
     int* indices)
 {
     assert(terrain);
