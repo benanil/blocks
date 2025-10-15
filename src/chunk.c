@@ -52,11 +52,12 @@ void terrain_init(
     assert(terrain);
     terrain->x = INT_MAX;
     terrain->z = INT_MAX;
+    chunk_t* chunks = calloc(1, sizeof(chunk_t) * WORLD_X * WORLD_Z);
+    assert(chunks);
     for (int x = 0; x < WORLD_X; x++)
     for (int z = 0; z < WORLD_Z; z++)
     {
-        terrain->chunks[x][z] = calloc(1, sizeof(chunk_t));
-        assert(terrain->chunks[x][z]);
+        terrain->chunks[x][z] = chunks++;
     }
 }
 
@@ -67,9 +68,9 @@ void terrain_free(
     for (int x = 0; x < WORLD_X; x++)
     for (int z = 0; z < WORLD_Z; z++)
     {
-        free(terrain->chunks[x][z]);
         terrain->chunks[x][z] = NULL;
     }
+    free(&terrain->chunks[0][0]);
 }
 
 chunk_t* terrain_get(
