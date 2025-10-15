@@ -47,6 +47,7 @@ static SDL_GPUBuffer* ibo;
 static uint32_t ibo_size;
 static worker_t workers[WORLD_WORKERS];
 static int sorted[WORLD_CHUNKS][2];
+static int indices[WORLD_CHUNKS * 2 * sizeof(int)];
 
 static int loop(
     void* args)
@@ -212,7 +213,7 @@ static void move(
     const int a = x / CHUNK_X - WORLD_X / 2;
     const int c = z / CHUNK_Z - WORLD_Z / 2;
     int size;
-    int* data = terrain_move(&terrain, a, c, &size);
+    int* data = terrain_move(&terrain, a, c, &size, indices);
     if (!data)
     {
         return;
@@ -226,7 +227,6 @@ static void move(
         chunk->load = true;
         chunk->mesh = true;
     }
-    free(data);
 }
 
 void world_update(

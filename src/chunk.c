@@ -181,7 +181,8 @@ int* terrain_move(
     terrain_t* terrain,
     const int x,
     const int z,
-    int* size)
+    int* size
+    int* indices)
 {
     assert(terrain);
     assert(size);
@@ -196,7 +197,6 @@ int* terrain_move(
     terrain->z = z;
     chunk_t* in[WORLD_X][WORLD_Z] = {0};
     chunk_t* out[WORLD_CHUNKS];
-    int* indices = malloc(WORLD_CHUNKS * 2 * sizeof(int));
     assert(indices);
     for (int i = 0; i < WORLD_X; i++)
     for (int j = 0; j < WORLD_Z; j++)
